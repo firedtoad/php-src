@@ -100,10 +100,10 @@ if (typeof(CWD) == "undefined") {
 
 /* defaults; we pick up the precise versions from configure.in */
 var PHP_VERSION = 7;
-var PHP_MINOR_VERSION = 0;
+var PHP_MINOR_VERSION = 1;
 var PHP_RELEASE_VERSION = 0;
 var PHP_EXTRA_VERSION = "";
-var PHP_VERSION_STRING = "7.0.0";
+var PHP_VERSION_STRING = "7.1.0";
 
 /* Get version numbers and DEFINE as a string */
 function get_version_numbers()
@@ -1472,10 +1472,16 @@ function ADD_SOURCES(dir, file_list, target, obj_dir)
 		 * is not a problem as buildconf only checks for pecl
 		 * as either a child or a sibling */
 		if (obj_dir == null) {
-			var build_dir = (dirname ? (dir + "\\" + dirname) : dir).replace(new RegExp("^..\\\\"), "");
+			if (MODE_PHPIZE) {
+				/* In the phpize mode, the subdirs are always relative to BUID_DIR.
+					No need to differentiate by extension, only one gets built. */
+				var build_dir = (dirname ? dirname : "").replace(new RegExp("^..\\\\"), "");
+			} else {
+				var build_dir = (dirname ? (dir + "\\" + dirname) : dir).replace(new RegExp("^..\\\\"), "");
+			}
 		}
 		else {
-			var build_dir = obj_dir.replace(new RegExp("^..\\\\"), "");
+			var build_dir = (dirname ? obj_dir + "\\" + dirname : obj_dir).replace(new RegExp("^..\\\\"), "");
 		}
 
 		obj = sub_build + build_dir + "\\" + filename.replace(re, ".obj"); 
@@ -2141,7 +2147,16 @@ function ADD_FLAG(name, flags, target)
 	if (configure_subst.Exists(name)) {
 		var curr_flags = configure_subst.Item(name);
 
-		if (curr_flags.indexOf(flags) >= 0) {
+		/* Prefix with a space, thus making sure the
+		   current flag is not a substring of some
+		   other. It's still not a complete check if
+		   some flags with spaces got added. 
+
+		   TODO rework to use an array, so direct
+		        match can be done. This will also
+			help to normalize flags and to not
+			to insert duplicates. */
+		if (curr_flags.indexOf(" " + flags) >= 0 || curr_flags.indexOf(flags + " ") >= 0) {
 			return;
 		}
 		
@@ -2677,6 +2692,15 @@ function toolset_setup_common_cflags()
 		} else {
 			if (VCVERS >= 1900) {
 				ADD_FLAG('CFLAGS', "/guard:cf");
+			}
+			if (VCVERS >= 1800) {
+				if (PHP_PGI != "yes" && PHP_PGO != "yes") {
+					ADD_FLAG('CFLAGS', "/Zc:inline");
+				}
+				/* We enable /opt:icf only with the debug pack, so /Gw only makes sense there, too. */
+				if (PHP_DEBUG_PACK == "yes") {
+					ADD_FLAG('CFLAGS', "/Gw");
+				}
 			}
 		}
 

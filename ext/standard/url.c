@@ -242,6 +242,21 @@ PHPAPI php_url *php_url_parse_ex(char const *str, size_t length)
 
 	/* check for login and password */
 	if ((p = zend_memrchr(s, '@', (e-s)))) {
+		/* check for invalid chars inside login/pass */
+		pp = s;
+		while (pp < p) {
+			/* http://www.rfc-editor.org/rfc/rfc3986.txt §3.2.1 */
+			const char search_rfc3986[] = ":;=!$%_-.~&'()*+,";
+			if (!isalnum(*pp) && !strchr(search_rfc3986, *pp)) {
+				if (ret->scheme) {
+					efree(ret->scheme);
+				}
+				efree(ret);
+				return NULL;
+			}
+			pp++;
+		}
+
 		if ((pp = memchr(s, ':', (p-s)))) {
 			ret->user = estrndup(s, (pp-s));
 			php_replace_controlchars_ex(ret->user, (pp - s));
@@ -493,7 +508,7 @@ PHPAPI zend_string *php_url_encode(char const *s, size_t len)
 
 	from = (unsigned char *)s;
 	end = (unsigned char *)s + len;
-	start = zend_string_alloc(3 * len, 0);
+	start = zend_string_safe_alloc(3, len, 0, 0);
 	to = (unsigned char*)ZSTR_VAL(start);
 
 	while (from < end) {
@@ -608,10 +623,10 @@ PHPAPI size_t php_url_decode(char *str, size_t len)
  */
 PHPAPI zend_string *php_raw_url_encode(char const *s, size_t len)
 {
-	register int x, y;
+	register size_t x, y;
 	zend_string *str;
 
-	str = zend_string_alloc(3 * len, 0);
+	str = zend_string_safe_alloc(3, len, 0, 0);
 	for (x = 0, y = 0; len--; x++, y++) {
 		ZSTR_VAL(str)[y] = (unsigned char) s[x];
 #ifndef CHARSET_EBCDIC
@@ -708,22 +723,24 @@ PHPAPI size_t php_raw_url_decode(char *str, size_t len)
 }
 /* }}} */
 
-/* {{{ proto array get_headers(string url[, int format])
+/* {{{ proto array get_headers(string url[, int format[, resource context]])
    fetches all the headers sent by the server in response to a HTTP request */
 PHP_FUNCTION(get_headers)
 {
 	char *url;
 	size_t url_len;
-	php_stream_context *context;
 	php_stream *stream;
 	zval *prev_val, *hdr = NULL, *h;
 	HashTable *hashT;
 	zend_long format = 0;
+	zval *zcontext = NULL;
+	php_stream_context *context;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|l", &url, &url_len, &format) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|lr!", &url, &url_len, &format, &zcontext) == FAILURE) {
 		return;
 	}
-	context = FG(default_context) ? FG(default_context) : (FG(default_context) = php_stream_context_alloc());
+
+	context = php_stream_context_from_zval(zcontext, 0);
 
 	if (!(stream = php_stream_open_wrapper_ex(url, "r", REPORT_ERRORS | STREAM_USE_URL | STREAM_ONLY_GET_HEADERS, NULL, context))) {
 		RETURN_FALSE;

@@ -124,14 +124,6 @@ PHP_METHOD(sqlite3, open)
 			return;
 		}
 
-#if PHP_API_VERSION < 20100412
-		if (PG(safe_mode) && (!php_checkuid(fullpath, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
-			zend_throw_exception_ex(zend_ce_exception, 0, "safe_mode prohibits opening %s", fullpath);
-			efree(fullpath);
-			return;
-		}
-#endif
-
 		if (php_check_open_basedir(fullpath)) {
 			zend_throw_exception_ex(zend_ce_exception, 0, "open_basedir prohibits opening %s", fullpath);
 			efree(fullpath);
@@ -164,11 +156,7 @@ PHP_METHOD(sqlite3, open)
 
 	db_obj->initialised = 1;
 
-#if PHP_API_VERSION < 20100412
-	if (PG(safe_mode) || (PG(open_basedir) && *PG(open_basedir))) {
-#else
 	if (PG(open_basedir) && *PG(open_basedir)) {
-#endif
 		sqlite3_set_authorizer(db_obj->db, php_sqlite3_authorizer, NULL);
 	}
 
@@ -695,9 +683,7 @@ static int sqlite3_do_callback(struct php_sqlite3_fci *fc, zval *cb, int argc, s
 	fake_argc = argc + is_agg;
 
 	fc->fci.size = sizeof(fc->fci);
-	fc->fci.function_table = EG(function_table);
 	ZVAL_COPY_VALUE(&fc->fci.function_name, cb);
-	fc->fci.symbol_table = NULL;
 	fc->fci.object = NULL;
 	fc->fci.retval = &retval;
 	fc->fci.param_count = fake_argc;
@@ -854,9 +840,7 @@ static int php_sqlite3_callback_compare(void *coll, int a_len, const void *a, in
 	int ret;
 
 	collation->fci.fci.size = (sizeof(collation->fci.fci));
-	collation->fci.fci.function_table = EG(function_table);
 	ZVAL_COPY_VALUE(&collation->fci.fci.function_name, &collation->cmp_func);
-	collation->fci.fci.symbol_table = NULL;
 	collation->fci.fci.object = NULL;
 	collation->fci.fci.retval = &retval;
 	collation->fci.fci.param_count = 2;
@@ -1185,7 +1169,8 @@ static php_stream_ops php_stream_sqlite3_ops = {
 	"SQLite3",
 	php_sqlite3_stream_seek,
 	php_sqlite3_stream_cast,
-	php_sqlite3_stream_stat
+	php_sqlite3_stream_stat,
+	NULL
 };
 
 /* {{{ proto resource SQLite3::openBlob(string table, string column, int rowid [, string dbname])
@@ -1333,6 +1318,12 @@ PHP_METHOD(sqlite3stmt, clear)
 		RETURN_FALSE;
 	}
 
+	if (stmt_obj->bound_params) {
+		zend_hash_destroy(stmt_obj->bound_params);
+		FREE_HASHTABLE(stmt_obj->bound_params);
+		stmt_obj->bound_params = NULL;
+	}
+
 	RETURN_TRUE;
 }
 /* }}} */
@@ -1406,6 +1397,26 @@ static int register_bound_parameter_to_sqlite(struct php_sqlite3_bound_param *pa
 }
 /* }}} */
 
+/* {{{ Best try to map between PHP and SQLite. Default is still text. */
+#define PHP_SQLITE3_SET_TYPE(z, p) \
+	switch (Z_TYPE_P(z)) { \
+		default: \
+			(p).type = SQLITE_TEXT; \
+			break; \
+		case IS_LONG: \
+		case IS_TRUE: \
+		case IS_FALSE: \
+			(p).type = SQLITE_INTEGER; \
+			break; \
+		case IS_DOUBLE: \
+			(p).type = SQLITE_FLOAT; \
+			break; \
+		case IS_NULL: \
+			(p).type = SQLITE_NULL; \
+			break; \
+	}
+/* }}} */
+
 /* {{{ proto bool SQLite3Stmt::bindParam(int parameter_number, mixed parameter [, int type])
    Bind Parameter to a stmt variable. */
 PHP_METHOD(sqlite3stmt, bindParam)
@@ -1429,6 +1440,10 @@ PHP_METHOD(sqlite3stmt, bindParam)
 	SQLITE3_CHECK_INITIALIZED_STMT(stmt_obj->stmt, SQLite3Stmt);
 
 	ZVAL_COPY(&param.parameter, parameter);
+
+	if (ZEND_NUM_ARGS() < 3) {
+		PHP_SQLITE3_SET_TYPE(parameter, param);
+	}
 
 	if (!register_bound_parameter_to_sqlite(&param, stmt_obj)) {
 		if (!Z_ISUNDEF(param.parameter)) {
@@ -1465,6 +1480,10 @@ PHP_METHOD(sqlite3stmt, bindValue)
 
 	ZVAL_COPY(&param.parameter, parameter);
 
+	if (ZEND_NUM_ARGS() < 3) {
+		PHP_SQLITE3_SET_TYPE(parameter, param);
+	}
+
 	if (!register_bound_parameter_to_sqlite(&param, stmt_obj)) {
 		if (!Z_ISUNDEF(param.parameter)) {
 			zval_ptr_dtor(&(param.parameter));
@@ -1475,6 +1494,8 @@ PHP_METHOD(sqlite3stmt, bindValue)
 	RETURN_TRUE;
 }
 /* }}} */
+
+#undef PHP_SQLITE3_SET_TYPE
 
 /* {{{ proto SQLite3Result SQLite3Stmt::execute()
    Executes a prepared statement and returns a result set object. */
@@ -1981,13 +2002,6 @@ static int php_sqlite3_authorizer(void *autharg, int access_type, const char *ar
 		case SQLITE_ATTACH:
 		{
 			if (memcmp(arg3, ":memory:", sizeof(":memory:")) && *arg3) {
-
-#if PHP_API_VERSION < 20100412
-				if (PG(safe_mode) && (!php_checkuid(arg3, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
-					return SQLITE_DENY;
-				}
-#endif
-
 				if (php_check_open_basedir(arg3)) {
 					return SQLITE_DENY;
 				}
@@ -2314,7 +2328,7 @@ zend_module_entry sqlite3_module_entry = {
 
 #ifdef COMPILE_DL_SQLITE3
 #ifdef ZTS
-ZEND_TSRMLS_CACHE_DEFINE();
+ZEND_TSRMLS_CACHE_DEFINE()
 #endif
 ZEND_GET_MODULE(sqlite3)
 #endif
