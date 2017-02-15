@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) 1997-2017 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -42,6 +42,31 @@ PHPAPI void php_srand(zend_long seed)
 PHPAPI zend_long php_rand(void)
 {
 	return php_mt_rand();
+}
+/* }}} */
+
+/* {{{ proto int mt_rand([int min, int max])
+   Returns a random number from Mersenne Twister */
+PHP_FUNCTION(rand)
+{
+	zend_long min;
+	zend_long max;
+	int argc = ZEND_NUM_ARGS();
+
+	if (argc == 0) {
+		RETURN_LONG(php_mt_rand() >> 1);
+	}
+
+	ZEND_PARSE_PARAMETERS_START(2, 2)
+		Z_PARAM_LONG(min)
+		Z_PARAM_LONG(max)
+	ZEND_PARSE_PARAMETERS_END();
+
+	if (max < min) {
+		RETURN_LONG(php_mt_rand_common(max, min));
+	}
+
+	RETURN_LONG(php_mt_rand_common(min, max));
 }
 /* }}} */
 

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) 1997-2017 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -34,11 +34,6 @@
 #include "win32/php_win32_globals.h"
 #include "win32/winutil.h"
 #include <process.h>
-#elif defined(NETWARE)
-#include <sys/timeval.h>
-#ifdef USE_WINSOCK
-#include <novsock2.h>
-#endif
 #endif
 #if HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -435,6 +430,9 @@ static PHP_INI_MH(OnUpdateInputEncoding)
 {
 	if (new_value) {
 		OnUpdateString(entry, new_value, mh_arg1, mh_arg2, mh_arg3, stage);
+#ifdef PHP_WIN32
+		php_win32_cp_do_update(NULL);
+#endif
 	}
 	return SUCCESS;
 }
@@ -446,6 +444,9 @@ static PHP_INI_MH(OnUpdateOutputEncoding)
 {
 	if (new_value) {
 		OnUpdateString(entry, new_value, mh_arg1, mh_arg2, mh_arg3, stage);
+#ifdef PHP_WIN32
+		php_win32_cp_do_update(NULL);
+#endif
 	}
 	return SUCCESS;
 }
@@ -505,8 +506,8 @@ PHP_INI_MH(OnChangeBrowscap);
  * PHP_INCLUDE_PATH
  */
 
- /* Windows and Netware use the internal mail */
-#if defined(PHP_WIN32) || defined(NETWARE)
+ /* Windows use the internal mail */
+#if defined(PHP_WIN32)
 # define DEFAULT_SENDMAIL_PATH NULL
 #elif defined(PHP_PROG_SENDMAIL)
 # define DEFAULT_SENDMAIL_PATH PHP_PROG_SENDMAIL " -t -i "
@@ -546,7 +547,6 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("register_argc_argv",	"1",		PHP_INI_PERDIR|PHP_INI_SYSTEM,	OnUpdateBool,	register_argc_argv,		php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("auto_globals_jit",		"1",		PHP_INI_PERDIR|PHP_INI_SYSTEM,	OnUpdateBool,	auto_globals_jit,	php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("short_open_tag",	DEFAULT_SHORT_OPEN_TAG,	PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnUpdateBool,			short_tags,				zend_compiler_globals,	compiler_globals)
-	STD_PHP_INI_BOOLEAN("sql.safe_mode",		"0",		PHP_INI_SYSTEM,		OnUpdateBool,			sql_safe_mode,			php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("track_errors",			"0",		PHP_INI_ALL,		OnUpdateBool,			track_errors,			php_core_globals,	core_globals)
 
 	STD_PHP_INI_ENTRY("unserialize_callback_func",	NULL,	PHP_INI_ALL,		OnUpdateString,			unserialize_callback_func,	php_core_globals,	core_globals)
@@ -601,7 +601,7 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("allow_url_include",	"0",		PHP_INI_SYSTEM,		OnUpdateBool,		allow_url_include,		php_core_globals,		core_globals)
 	STD_PHP_INI_BOOLEAN("enable_post_data_reading",	"1",	PHP_INI_SYSTEM|PHP_INI_PERDIR,	OnUpdateBool,	enable_post_data_reading,	php_core_globals,	core_globals)
 
-	STD_PHP_INI_ENTRY("realpath_cache_size",	"16K",		PHP_INI_SYSTEM,		OnUpdateLong,	realpath_cache_size_limit,	virtual_cwd_globals,	cwd_globals)
+	STD_PHP_INI_ENTRY("realpath_cache_size",	"4096K",	PHP_INI_SYSTEM,		OnUpdateLong,	realpath_cache_size_limit,	virtual_cwd_globals,	cwd_globals)
 	STD_PHP_INI_ENTRY("realpath_cache_ttl",		"120",		PHP_INI_SYSTEM,		OnUpdateLong,	realpath_cache_ttl,			virtual_cwd_globals,	cwd_globals)
 
 	STD_PHP_INI_ENTRY("user_ini.filename",		".user.ini",	PHP_INI_SYSTEM,		OnUpdateString,		user_ini_filename,	php_core_globals,		core_globals)
@@ -1004,7 +1004,7 @@ PHPAPI void php_html_puts(const char *str, size_t size)
 
 /* {{{ php_error_cb
  extended error handling function */
-static ZEND_COLD void php_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
+static ZEND_COLD void php_error_cb(int type, const char *error_filename, const uint32_t error_lineno, const char *format, va_list args)
 {
 	char *buffer;
 	int buffer_len, display;
@@ -1094,7 +1094,7 @@ static ZEND_COLD void php_error_cb(int type, const char *error_filename, const u
 				syslog_type_int = LOG_ERR;
 				break;
 			case E_RECOVERABLE_ERROR:
-				error_type_str = "Catchable fatal error";
+				error_type_str = "Recoverable fatal error";
 				syslog_type_int = LOG_ERR;
 				break;
 			case E_WARNING:
@@ -1159,11 +1159,9 @@ static ZEND_COLD void php_error_cb(int type, const char *error_filename, const u
 					if ((!strcmp(sapi_module.name, "cli") || !strcmp(sapi_module.name, "cgi")) &&
 						PG(display_errors) == PHP_DISPLAY_ERRORS_STDERR
 					) {
+						fprintf(stderr, "%s: %s in %s on line %u\n", error_type_str, buffer, error_filename, error_lineno);
 #ifdef PHP_WIN32
-						fprintf(stderr, "%s: %s in %s on line %u\n", error_type_str, buffer, error_filename, error_lineno);
 						fflush(stderr);
-#else
-						fprintf(stderr, "%s: %s in %s on line %u\n", error_type_str, buffer, error_filename, error_lineno);
 #endif
 					} else {
 						php_printf("%s\n%s: %s in %s on line %d\n%s", STR_PRINT(prepend_string), error_type_str, buffer, error_filename, error_lineno, STR_PRINT(append_string));
@@ -1801,6 +1799,8 @@ void php_request_shutdown(void *dummy)
 {
 	zend_bool report_memleaks;
 
+	EG(flags) |= EG_FLAGS_IN_SHUTDOWN;
+
 	report_memleaks = PG(report_memleaks);
 
 	/* EG(current_execute_data) points into nirvana and therefore cannot be safely accessed
@@ -2048,15 +2048,15 @@ void dummy_invalid_parameter_handler(
 
 /* {{{ php_module_startup
  */
-int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_modules, uint num_additional_modules)
+int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_modules, uint32_t num_additional_modules)
 {
 	zend_utility_functions zuf;
 	zend_utility_values zuv;
 	int retval = SUCCESS, module_number=0;	/* for REGISTER_INI_ENTRIES() */
-	char *php_os;
+	char *php_os, *php_os_family;
 	zend_module_entry *module;
 
-#if defined(PHP_WIN32) || (defined(NETWARE) && defined(USE_WINSOCK))
+#ifdef PHP_WIN32
 	WORD wVersionRequested = MAKEWORD(2, 0);
 	WSADATA wsaData;
 #endif
@@ -2075,12 +2075,30 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 	php_os = PHP_OS;
 #endif
 
+#if defined(PHP_WIN32)
+	php_os_family = "WIN";
+#elif defined(BSD) || defined(__DragonFly__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+	php_os_family = "BSD";
+#elif defined(__APPLE__) || defined(__MACH__)
+	php_os_family = "OSX";
+#elif defined(__sun__)
+	php_os_family = "SOLARIS";
+#elif defined(__linux__)
+	php_os_family = "LINUX";
+#else
+	php_os_family = "unknown";
+#endif
+
+
 #ifdef ZTS
 	(void)ts_resource(0);
 #endif
 
 #ifdef PHP_WIN32
-	php_win32_init_rng_lock();
+	if (!php_win32_init_random_bytes()) {
+		fprintf(stderr, "\ncrypt algorithm provider initialization failed\n");
+		return FAILURE;
+	}
 #endif
 
 	module_shutdown = 0;
@@ -2116,8 +2134,8 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 	zuf.ticks_function = php_run_ticks;
 	zuf.on_timeout = php_on_timeout;
 	zuf.stream_open_function = php_stream_open_for_zend;
-	zuf.vspprintf_function = vspprintf;
-	zuf.vstrpprintf_function = vstrpprintf;
+	zuf.printf_to_smart_string_function = php_printf_to_smart_string;
+	zuf.printf_to_smart_str_function = php_printf_to_smart_str;
 	zuf.getenv_function = sapi_getenv;
 	zuf.resolve_path_function = php_resolve_path_for_zend;
 	zend_startup(&zuf, NULL);
@@ -2131,15 +2149,10 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 	tzset();
 #endif
 
-#if defined(PHP_WIN32) || (defined(NETWARE) && defined(USE_WINSOCK))
+#ifdef PHP_WIN32
 	/* start up winsock services */
 	if (WSAStartup(wVersionRequested, &wsaData) != 0) {
 		php_printf("\nwinsock.dll unusable. %d\n", WSAGetLastError());
-		return FAILURE;
-	}
-	/* Check that we actually got the requested WSA version */
-	if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 0) {
-		php_printf("\nwinsock.dll unusable. Requested version: %d.%d, got %d.%d", LOBYTE(wVersionRequested), HIBYTE(wVersionRequested), LOBYTE(wsaData.wVersion), HIBYTE(wsaData.wVersion));
 		return FAILURE;
 	}
 #endif
@@ -2160,6 +2173,7 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 #endif
 	REGISTER_MAIN_LONG_CONSTANT("PHP_DEBUG", PHP_DEBUG, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_OS", php_os, strlen(php_os), CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PHP_OS_FAMILY", php_os_family, strlen(php_os_family), CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_SAPI", sapi_module.name, strlen(sapi_module.name), CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("DEFAULT_INCLUDE_PATH", PHP_INCLUDE_PATH, sizeof(PHP_INCLUDE_PATH)-1, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("PEAR_INSTALL_DIR", PEAR_INSTALLDIR, sizeof(PEAR_INSTALLDIR)-1, CONST_PERSISTENT | CONST_CS);
@@ -2183,6 +2197,10 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 	REGISTER_MAIN_LONG_CONSTANT("PHP_INT_MIN", ZEND_LONG_MIN, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_LONG_CONSTANT("PHP_INT_SIZE", SIZEOF_ZEND_LONG, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_LONG_CONSTANT("PHP_FD_SETSIZE", FD_SETSIZE, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("PHP_FLOAT_DIG", DBL_DIG, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_DOUBLE_CONSTANT("PHP_FLOAT_EPSILON", DBL_EPSILON, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_DOUBLE_CONSTANT("PHP_FLOAT_MAX", DBL_MAX, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_DOUBLE_CONSTANT("PHP_FLOAT_MIN", DBL_MIN, CONST_PERSISTENT | CONST_CS);
 
 #ifdef PHP_WIN32
 	REGISTER_MAIN_LONG_CONSTANT("PHP_WINDOWS_VERSION_MAJOR",      EG(windows_version_info).dwMajorVersion, CONST_PERSISTENT | CONST_CS);
@@ -2236,7 +2254,7 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 
 	zuv.html_errors = 1;
 	zuv.import_use_extension = ".php";
-	zuv.import_use_extension_length = (uint)strlen(zuv.import_use_extension);
+	zuv.import_use_extension_length = (uint32_t)strlen(zuv.import_use_extension);
 	php_startup_auto_globals();
 	zend_set_utility_values(&zuv);
 	php_startup_sapi_content_types();
@@ -2298,8 +2316,9 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 		} directives[2] = {
 			{
 				E_DEPRECATED,
-				"Directive '%s' is deprecated in PHP 5.3 and greater",
+				"Directive '%s' is deprecated",
 				{
+					"track_errors",
 					NULL
 				}
 			},
@@ -2393,14 +2412,14 @@ void php_module_shutdown(void)
 #endif
 
 #ifdef PHP_WIN32
-	php_win32_free_rng_lock();
+	(void)php_win32_shutdown_random_bytes();
 #endif
 
 	sapi_flush();
 
 	zend_shutdown();
 
-#if defined(PHP_WIN32) || (defined(NETWARE) && defined(USE_WINSOCK))
+#ifdef PHP_WIN32
 	/*close winsock */
 	WSACleanup();
 #endif
@@ -2485,7 +2504,7 @@ PHPAPI int php_execute_script(zend_file_handle *primary_file)
 		 *   otherwise it will get opened and added to the included_files list in zend_execute_scripts
 		 */
  		if (primary_file->filename &&
- 		    (primary_file->filename[0] != '-' || primary_file->filename[1] != 0) &&
+ 		    strcmp("Standard input code", primary_file->filename) &&
  			primary_file->opened_path == NULL &&
  			primary_file->type != ZEND_HANDLE_FILENAME
 		) {

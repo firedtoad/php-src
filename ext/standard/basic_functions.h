@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) 1997-2017 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -215,7 +215,10 @@ typedef struct _php_basic_globals {
 	} unserialize;
 
 	/* url_scanner_ex.re */
-	url_adapt_state_ex_t url_adapt_state_ex;
+	url_adapt_state_ex_t url_adapt_session_ex;
+	HashTable url_adapt_session_hosts_ht;
+	url_adapt_state_ex_t url_adapt_output_ex;
+	HashTable url_adapt_output_hosts_ht;
 
 #ifdef HAVE_MMAP
 	void *mmap_file;

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2016 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2017 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -332,7 +332,7 @@ static uint32_t zend_vm_opcodes_flags[187] = {
 	0x00001001,
 	0x01000703,
 	0x00000000,
-	0x00001001,
+	0x00001003,
 	0x00000007,
 	0x00000003,
 	0x07000003,

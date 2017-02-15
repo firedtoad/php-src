@@ -22,9 +22,11 @@ echo "If this is printed BAIL hasn't worked";
 --EXPECTF--
 int(0)
 
+Deprecated: assert(): Calling assert() with a string argument is deprecated in %s on line %d
+
 Warning: assert(): Assertion "0 != 0" failed in %s on line 9
 
-Fatal error: Uncaught Error: Too few arguments to function f1(), 3 passed and exactly 4 expected in %sassert_error2.php:2
+Fatal error: Uncaught ArgumentCountError: Too few arguments to function f1(), 3 passed and exactly 4 expected in %sassert_error2.php:2
 Stack trace:
 #0 [internal function]: f1('%s', 9, '0 != 0')
 #1 %sassert_error2.php(9): assert('0 != 0')

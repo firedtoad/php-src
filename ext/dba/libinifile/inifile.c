@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) 1997-2017 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -250,6 +250,7 @@ val_type inifile_fetch(inifile *dba, const key_type *key, int skip) {
 	if (skip == -1 && dba->next.key.group && dba->next.key.name && !inifile_key_cmp(&dba->next.key, key)) {
 		/* we got position already from last fetch */
 		php_stream_seek(dba->fp, dba->next.pos, SEEK_SET);
+		ln.key.group = estrdup(dba->next.key.group);
 	} else {
 		/* specific instance or not same key -> restart search */
 		/* the slow way: restart and seacrch */

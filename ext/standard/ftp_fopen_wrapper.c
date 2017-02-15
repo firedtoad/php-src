@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) 1997-2017 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -49,8 +49,6 @@
 
 #ifdef PHP_WIN32
 #include <winsock2.h>
-#elif defined(NETWARE) && defined(USE_WINSOCK)
-#include <novsock2.h>
 #else
 #include <netinet/in.h>
 #include <netdb.h>
@@ -59,7 +57,7 @@
 #endif
 #endif
 
-#if defined(PHP_WIN32) || defined(__riscos__) || defined(NETWARE)
+#if defined(PHP_WIN32) || defined(__riscos__)
 #undef AF_UNIX
 #endif
 
@@ -188,7 +186,8 @@ static php_stream *php_ftp_fopen_connect(php_stream_wrapper *wrapper, const char
 			/* get the response */
 			result = GET_FTP_RESULT(stream);
 			if (result != 334) {
-				use_ssl = 0;
+				php_stream_wrapper_log_error(wrapper, options, "Server doesn't support FTPS.");
+				goto connect_errexit;
 			} else {
 				/* we must reuse the old SSL session id */
 				/* if we talk to an old ftpd-ssl */

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) 1997-2017 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -58,7 +58,6 @@ struct _php_core_globals {
 
 	zend_long output_buffering;
 
-	zend_bool sql_safe_mode;
 	zend_bool enable_dl;
 
 	char *output_handler;

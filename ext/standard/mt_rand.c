@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2016 The PHP Group                                |
+   | Copyright (c) 1997-2017 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -191,8 +191,11 @@ PHP_FUNCTION(mt_srand)
 	zend_long seed = 0;
 	zend_long mode = MT_RAND_MT19937;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "|ll", &seed, &mode) == FAILURE)
-		return;
+	ZEND_PARSE_PARAMETERS_START(0, 2)
+		Z_PARAM_OPTIONAL
+		Z_PARAM_LONG(seed)
+		Z_PARAM_LONG(mode)
+	ZEND_PARSE_PARAMETERS_END();
 
 	if (ZEND_NUM_ARGS() == 0)
 		seed = GENERATE_SEED();
@@ -256,13 +259,31 @@ PHPAPI zend_long php_mt_rand_range(zend_long min, zend_long max)
 }
 /* }}} */
 
+/* {{{ php_mt_rand_common
+ * rand() allows min > max, mt_rand does not */
+PHPAPI zend_long php_mt_rand_common(zend_long min, zend_long max)
+{
+	zend_long n;
+
+	if (BG(mt_rand_mode) == MT_RAND_MT19937) {
+		return php_mt_rand_range(min, max);
+	}
+
+	/* Legacy mode deliberately not inside php_mt_rand_range()
+	 * to prevent other functions being affected */
+	n = (zend_long)php_mt_rand() >> 1;
+	RAND_RANGE_BADSCALING(n, min, max, PHP_MT_RAND_MAX);
+
+	return n;
+}
+/* }}} */
+
 /* {{{ proto int mt_rand([int min, int max])
    Returns a random number from Mersenne Twister */
 PHP_FUNCTION(mt_rand)
 {
 	zend_long min;
 	zend_long max;
-	zend_long n;
 	int argc = ZEND_NUM_ARGS();
 
 	if (argc == 0) {
@@ -270,24 +291,17 @@ PHP_FUNCTION(mt_rand)
 		RETURN_LONG(php_mt_rand() >> 1);
 	}
 
-	if (zend_parse_parameters(argc, "ll", &min, &max) == FAILURE) {
-		return;
-	}
+	ZEND_PARSE_PARAMETERS_START(2, 2)
+		Z_PARAM_LONG(min)
+		Z_PARAM_LONG(max)
+	ZEND_PARSE_PARAMETERS_END();
 
 	if (UNEXPECTED(max < min)) {
 		php_error_docref(NULL, E_WARNING, "max(" ZEND_LONG_FMT ") is smaller than min(" ZEND_LONG_FMT ")", max, min);
-		max ^= min ^= max ^= min;
+		RETURN_FALSE;
 	}
 
-	if (BG(mt_rand_mode) == MT_RAND_MT19937) {
-		RETURN_LONG(php_mt_rand_range(min, max));
-	}
-
-	/* Legacy mode deliberately not inside php_mt_rand_range()
-	 * to prevent other functions being affected */
-	n = (zend_long)php_mt_rand() >> 1;
-	RAND_RANGE_BADSCALING(n, min, max, PHP_MT_RAND_MAX);
-	RETURN_LONG(n);
+	RETURN_LONG(php_mt_rand_common(min, max));
 }
 /* }}} */
 
