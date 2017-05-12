@@ -26,6 +26,7 @@
 #define ZEND_VM_KIND_CALL	1
 #define ZEND_VM_KIND_SWITCH	2
 #define ZEND_VM_KIND_GOTO	3
+#define ZEND_VM_KIND_HYBRID	4
 #define ZEND_VM_KIND		ZEND_VM_KIND_CALL
 
 #define ZEND_VM_OP_SPEC          0x00000001
@@ -252,7 +253,9 @@ END_EXTERN_C()
 #define ZEND_BIND_STATIC                     183
 #define ZEND_FETCH_THIS                      184
 #define ZEND_ISSET_ISEMPTY_THIS              186
+#define ZEND_SWITCH_LONG                     187
+#define ZEND_SWITCH_STRING                   188
 
-#define ZEND_VM_LAST_OPCODE                  186
+#define ZEND_VM_LAST_OPCODE                  188
 
 #endif
