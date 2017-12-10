@@ -59,12 +59,10 @@ typedef struct _zend_op zend_op;
 #if SIZEOF_SIZE_T == 4
 # define ZEND_USE_ABS_JMP_ADDR      1
 # define ZEND_USE_ABS_CONST_ADDR    1
-# define ZEND_EX_USE_LITERALS       0
 # define ZEND_EX_USE_RUN_TIME_CACHE 1
 #else
 # define ZEND_USE_ABS_JMP_ADDR      0
 # define ZEND_USE_ABS_CONST_ADDR    0
-# define ZEND_EX_USE_LITERALS       1
 # define ZEND_EX_USE_RUN_TIME_CACHE 1
 #endif
 
@@ -409,6 +407,9 @@ struct _zend_op_array {
 #define ZEND_RETURN_VALUE				0
 #define ZEND_RETURN_REFERENCE			1
 
+/* zend_internal_function_handler */
+typedef void (*zif_handler)(INTERNAL_FUNCTION_PARAMETERS);
+
 typedef struct _zend_internal_function {
 	/* Common elements */
 	zend_uchar type;
@@ -422,7 +423,7 @@ typedef struct _zend_internal_function {
 	zend_internal_arg_info *arg_info;
 	/* END of common elements */
 
-	void (*handler)(INTERNAL_FUNCTION_PARAMETERS);
+	zif_handler handler;
 	struct _zend_module_entry *module;
 	void *reserved[ZEND_MAX_RESERVED_RESOURCES];
 } zend_internal_function;
@@ -466,9 +467,6 @@ struct _zend_execute_data {
 	zend_array          *symbol_table;
 #if ZEND_EX_USE_RUN_TIME_CACHE
 	void               **run_time_cache;   /* cache op_array->run_time_cache */
-#endif
-#if ZEND_EX_USE_LITERALS
-	zval                *literals;         /* cache op_array->literals       */
 #endif
 };
 
@@ -613,63 +611,37 @@ struct _zend_execute_data {
 #if ZEND_USE_ABS_CONST_ADDR
 
 /* run-time constant */
-# define RT_CONSTANT_EX(base, node) \
+# define RT_CONSTANT(opline, node) \
 	(node).zv
 
 /* convert constant from compile-time to run-time */
-# define ZEND_PASS_TWO_UPDATE_CONSTANT(op_array, node) do { \
+# define ZEND_PASS_TWO_UPDATE_CONSTANT(op_array, opline, node) do { \
 		(node).zv = CT_CONSTANT_EX(op_array, (node).constant); \
 	} while (0)
 
-/* convert constant back from run-time to compile-time */
-# define ZEND_PASS_TWO_UNDO_CONSTANT(op_array, node) do { \
-		(node).constant = (node).zv - (op_array)->literals; \
-	} while (0)
-
 #else
 
+/* At run-time, constants are allocated together with op_array->opcodes
+ * and addressed relatively to current opline.
+ */
+
 /* run-time constant */
-# define RT_CONSTANT_EX(base, node) \
-	((zval*)(((char*)(base)) + (node).constant))
+# define RT_CONSTANT(opline, node) \
+	((zval*)(((char*)(opline)) + (int32_t)(node).constant))
 
 /* convert constant from compile-time to run-time */
-# define ZEND_PASS_TWO_UPDATE_CONSTANT(op_array, node) do { \
-		(node).constant *= sizeof(zval); \
-	} while (0)
-
-/* convert constant back from run-time to compile-time (do nothing) */
-# define ZEND_PASS_TWO_UNDO_CONSTANT(op_array, node) do { \
-		(node).constant /= sizeof(zval); \
+# define ZEND_PASS_TWO_UPDATE_CONSTANT(op_array, opline, node) do { \
+		(node).constant = \
+			(((char*)CT_CONSTANT_EX(op_array, (node).constant)) - \
+			((char*)opline)); \
 	} while (0)
 
 #endif
 
-#if ZEND_EX_USE_LITERALS
-
-# define EX_LITERALS() \
-	EX(literals)
-
-# define EX_LOAD_LITERALS(op_array) do { \
-		EX(literals) = (op_array)->literals; \
+/* convert constant back from run-time to compile-time */
+#define ZEND_PASS_TWO_UNDO_CONSTANT(op_array, opline, node) do { \
+		(node).constant = RT_CONSTANT(opline, node) - (op_array)->literals; \
 	} while (0)
-
-#else
-
-# define EX_LITERALS() \
-	EX(func)->op_array.literals
-
-# define EX_LOAD_LITERALS(op_array) do { \
-	} while (0)
-
-#endif
-
-/* run-time constant */
-#define RT_CONSTANT(op_array, node) \
-	RT_CONSTANT_EX((op_array)->literals, node)
-
-/* constant in currently executed function */
-#define EX_CONSTANT(node) \
-	RT_CONSTANT_EX(EX_LITERALS(), node)
 
 #if ZEND_EX_USE_RUN_TIME_CACHE
 
@@ -776,12 +748,8 @@ ZEND_API int open_file_for_scanning(zend_file_handle *file_handle);
 ZEND_API void init_op_array(zend_op_array *op_array, zend_uchar type, int initial_ops_size);
 ZEND_API void destroy_op_array(zend_op_array *op_array);
 ZEND_API void zend_destroy_file_handle(zend_file_handle *file_handle);
-ZEND_API void zend_cleanup_user_class_data(zend_class_entry *ce);
 ZEND_API void zend_cleanup_internal_class_data(zend_class_entry *ce);
 ZEND_API void zend_cleanup_internal_classes(void);
-ZEND_API void zend_cleanup_op_array_data(zend_op_array *op_array);
-ZEND_API int clean_non_persistent_function_full(zval *zv);
-ZEND_API int clean_non_persistent_class_full(zval *zv);
 
 ZEND_API void destroy_zend_function(zend_function *function);
 ZEND_API void zend_function_dtor(zval *zv);
@@ -907,7 +875,6 @@ void zend_assert_valid_class_name(const zend_string *const_name);
 #define ZEND_ISSET				    0x02000000
 #define ZEND_ISEMPTY			    0x01000000
 #define ZEND_ISSET_ISEMPTY_MASK	    (ZEND_ISSET | ZEND_ISEMPTY)
-#define ZEND_QUICK_SET			    0x00800000
 
 #define ZEND_FETCH_ARG_MASK         0x000fffff
 
@@ -918,6 +885,10 @@ void zend_assert_valid_class_name(const zend_string *const_name);
 #define ZEND_SEND_PREFER_REF 2
 
 #define ZEND_DIM_IS 1
+
+#define IS_CONSTANT_UNQUALIFIED     0x010
+#define IS_CONSTANT_CLASS           0x080  /* __CLASS__ in trait */
+#define IS_CONSTANT_IN_NAMESPACE    0x100
 
 static zend_always_inline int zend_check_arg_send_type(const zend_function *zf, uint32_t arg_num, uint32_t mask)
 {
@@ -1058,4 +1029,6 @@ ZEND_API zend_bool zend_binary_op_produces_numeric_string_error(uint32_t opcode,
  * c-basic-offset: 4
  * indent-tabs-mode: t
  * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

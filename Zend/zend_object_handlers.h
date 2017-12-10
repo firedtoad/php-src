@@ -25,10 +25,18 @@
 struct _zend_property_info;
 
 #define ZEND_WRONG_PROPERTY_INFO \
-	((struct _zend_property_info*)((zend_intptr_t)-1))
+	((struct _zend_property_info*)((intptr_t)-1))
 
-#define ZEND_DYNAMIC_PROPERTY_OFFSET ((uint32_t)(-1))
-#define ZEND_WRONG_PROPERTY_OFFSET   ((uint32_t)(-2))
+#define ZEND_DYNAMIC_PROPERTY_OFFSET               ((uintptr_t)(intptr_t)(-1))
+
+#define IS_VALID_PROPERTY_OFFSET(offset)           ((intptr_t)(offset) > 0)
+#define IS_WRONG_PROPERTY_OFFSET(offset)           ((intptr_t)(offset) == 0)
+#define IS_DYNAMIC_PROPERTY_OFFSET(offset)         ((intptr_t)(offset) < 0)
+
+#define IS_UNKNOWN_DYNAMIC_PROPERTY_OFFSET(offset) (offset == ZEND_DYNAMIC_PROPERTY_OFFSET)
+#define ZEND_DECODE_DYN_PROP_OFFSET(offset)        ((uintptr_t)(-(intptr_t)(offset) - 2))
+#define ZEND_ENCODE_DYN_PROP_OFFSET(offset)        ((uintptr_t)(-((intptr_t)(offset) + 2)))
+
 
 /* The following rule applies to read_property() and read_dimension() implementations:
    If you return a zval which is not otherwise referenced by the extension or the engine's
@@ -155,12 +163,12 @@ struct _zend_object_handlers {
 	zend_object_compare_zvals_t				compare;
 };
 
+BEGIN_EXTERN_C()
 extern ZEND_API zend_object_handlers std_object_handlers;
 
 #define zend_get_function_root_class(fbc) \
 	((fbc)->common.prototype ? (fbc)->common.prototype->common.scope : (fbc)->common.scope)
 
-BEGIN_EXTERN_C()
 ZEND_API union _zend_function *zend_std_get_static_method(zend_class_entry *ce, zend_string *function_name_strval, const zval *key);
 ZEND_API zval *zend_std_get_static_property(zend_class_entry *ce, zend_string *property_name, zend_bool silent);
 ZEND_API ZEND_COLD zend_bool zend_std_unset_static_property(zend_class_entry *ce, zend_string *property_name);
@@ -200,4 +208,6 @@ END_EXTERN_C()
  * c-basic-offset: 4
  * indent-tabs-mode: t
  * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

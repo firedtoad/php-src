@@ -502,7 +502,7 @@ PHP_FUNCTION(stream_bucket_new)
 	php_stream_bucket *bucket;
 
 	ZEND_PARSE_PARAMETERS_START(2, 2)
-		Z_PARAM_ZVAL_DEREF(zstream)
+		Z_PARAM_ZVAL(zstream)
 		Z_PARAM_STRING(buffer, buffer_len)
 	ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE);
 
@@ -587,7 +587,7 @@ PHP_FUNCTION(stream_filter_register)
 	fdat->classname = zend_string_copy(classname);
 
 	if (zend_hash_add_ptr(BG(user_filter_map), filtername, fdat) != NULL &&
-			php_stream_filter_register_factory_volatile(ZSTR_VAL(filtername), &user_filter_factory) == SUCCESS) {
+			php_stream_filter_register_factory_volatile(filtername, &user_filter_factory) == SUCCESS) {
 		RETVAL_TRUE;
 	} else {
 		zend_string_release(classname);

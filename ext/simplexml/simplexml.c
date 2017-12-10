@@ -260,7 +260,7 @@ long_dim:
 			name = NULL;
 		} else {
 			if (Z_TYPE_P(member) != IS_STRING) {
-				ZVAL_STR(&tmp_zv, zval_get_string(member));
+				ZVAL_STR(&tmp_zv, zval_get_string_func(member));
 				member = &tmp_zv;
 			}
 			name = Z_STRVAL_P(member);
@@ -468,7 +468,7 @@ long_dim:
 			}
 		} else {
 			if (Z_TYPE_P(member) != IS_STRING) {
-				trim_str = zval_get_string(member);
+				trim_str = zval_get_string_func(member);
 				ZVAL_STR(&tmp_zv, php_trim(trim_str, NULL, 0, 3));
 				zend_string_release(trim_str);
 				member = &tmp_zv;
@@ -522,9 +522,8 @@ long_dim:
 			case IS_DOUBLE:
 			case IS_NULL:
 				if (Z_TYPE_P(value) != IS_STRING) {
-					ZVAL_COPY(&zval_copy, value);
+					ZVAL_STR(&zval_copy, zval_get_string_func(value));
 					value = &zval_copy;
-					convert_to_string(value);
 					new_value = 1;
 				}
 				break;
@@ -726,7 +725,7 @@ static int sxe_prop_dim_exists(zval *object, zval *member, int check_empty, zend
 	zval            tmp_zv;
 
 	if (Z_TYPE_P(member) != IS_STRING && Z_TYPE_P(member) != IS_LONG) {
-		ZVAL_STR(&tmp_zv, zval_get_string(member));
+		ZVAL_STR(&tmp_zv, zval_get_string_func(member));
 		member = &tmp_zv;
 	}
 
@@ -845,7 +844,7 @@ static void sxe_prop_dim_delete(zval *object, zval *member, zend_bool elements, 
 	int             test = 0;
 
 	if (Z_TYPE_P(member) != IS_STRING && Z_TYPE_P(member) != IS_LONG) {
-		ZVAL_STR(&tmp_zv, zval_get_string(member));
+		ZVAL_STR(&tmp_zv, zval_get_string_func(member));
 		member = &tmp_zv;
 	}
 
@@ -1133,14 +1132,12 @@ static HashTable *sxe_get_prop_hash(zval *object, int is_debug) /* {{{ */
 	sxe = Z_SXEOBJ_P(object);
 
 	if (is_debug) {
-		ALLOC_HASHTABLE(rv);
-		zend_hash_init(rv, 0, NULL, ZVAL_PTR_DTOR, 0);
+		rv = zend_new_array(0);
 	} else if (sxe->properties) {
 		zend_hash_clean(sxe->properties);
 		rv = sxe->properties;
 	} else {
-		ALLOC_HASHTABLE(rv);
-		zend_hash_init(rv, 0, NULL, ZVAL_PTR_DTOR, 0);
+		rv = zend_new_array(0);
 		sxe->properties = rv;
 	}
 
@@ -1352,9 +1349,9 @@ SXE_METHOD(xpath)
 
 	result = retval->nodesetval;
 
-	array_init(return_value);
-
 	if (result != NULL) {
+		array_init(return_value);
+
 		for (i = 0; i < result->nodeNr; ++i) {
 			nodeptr = result->nodeTab[i];
 			if (nodeptr->type == XML_TEXT_NODE || nodeptr->type == XML_ELEMENT_NODE || nodeptr->type == XML_ATTRIBUTE_NODE) {
@@ -1374,6 +1371,8 @@ SXE_METHOD(xpath)
 				add_next_index_zval(return_value, &value);
 			}
 		}
+	} else {
+		ZVAL_EMPTY_ARRAY(return_value);
 	}
 
 	xmlXPathFreeObject(retval);
@@ -2166,7 +2165,7 @@ static php_sxe_object* php_sxe_object_new(zend_class_entry *ce, zend_function *f
 {
 	php_sxe_object *intern;
 
-	intern = ecalloc(1, sizeof(php_sxe_object) + zend_object_properties_size(ce));
+	intern = zend_object_alloc(sizeof(php_sxe_object), ce);
 
 	intern->iter.type = SXE_ITER_NONE;
 	intern->iter.nsprefix = NULL;
@@ -2309,16 +2308,16 @@ SXE_METHOD(__construct)
 	}
 
 	if (ZEND_SIZE_T_INT_OVFL(data_len)) {
-		php_error_docref(NULL, E_WARNING, "Data is too long");
-		RETURN_FALSE;
+		zend_throw_exception(zend_ce_exception, "Data is too long", 0);
+		return;
 	}
 	if (ZEND_SIZE_T_INT_OVFL(ns_len)) {
-		php_error_docref(NULL, E_WARNING, "Namespace is too long");
-		RETURN_FALSE;
+		zend_throw_exception(zend_ce_exception, "Namespace is too long", 0);
+		return;
 	}
 	if (ZEND_LONG_EXCEEDS_INT(options)) {
-		php_error_docref(NULL, E_WARNING, "Invalid options");
-		RETURN_FALSE;
+		zend_throw_exception(zend_ce_exception, "Invalid options", 0);
+		return;
 	}
 
 	docp = is_url ? xmlReadFile(data, NULL, (int)options) : xmlReadMemory(data, (int)data_len, NULL, NULL, (int)options);

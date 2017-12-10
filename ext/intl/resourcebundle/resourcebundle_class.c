@@ -57,7 +57,7 @@ static zend_object *ResourceBundle_object_create( zend_class_entry *ce )
 {
 	ResourceBundle_object *rb;
 
-	rb = ecalloc( 1, sizeof(ResourceBundle_object) + zend_object_properties_size(ce));
+	rb = zend_object_alloc(sizeof(ResourceBundle_object), ce);
 
 	zend_object_std_init( &rb->zend, ce );
 	object_properties_init( &rb->zend, ce);
@@ -445,12 +445,6 @@ void resourcebundle_register_class( void )
 	ce.get_iterator = resourcebundle_get_iterator;
 
 	ResourceBundle_ce_ptr = zend_register_internal_class( &ce );
-
-	if( !ResourceBundle_ce_ptr )
-	{
-		zend_error(E_ERROR, "Failed to register ResourceBundle class");
-		return;
-	}
 
 	ResourceBundle_object_handlers = std_object_handlers;
 	ResourceBundle_object_handlers.offset = XtOffsetOf(ResourceBundle_object, zend);

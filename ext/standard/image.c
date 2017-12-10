@@ -1186,7 +1186,7 @@ PHPAPI char * php_image_type_to_mime_type(int image_type)
 		case IMAGE_FILETYPE_PSD:
 			return "image/psd";
 		case IMAGE_FILETYPE_BMP:
-			return "image/x-ms-bmp";
+			return "image/bmp";
 		case IMAGE_FILETYPE_TIFF_II:
 		case IMAGE_FILETYPE_TIFF_MM:
 			return "image/tiff";
@@ -1475,11 +1475,11 @@ static void php_getimagesize_from_any(INTERNAL_FUNCTION_PARAMETERS, int mode) { 
 	ZEND_PARSE_PARAMETERS_START(1, 2)
 		Z_PARAM_STRING(input, input_len)
 		Z_PARAM_OPTIONAL
-		Z_PARAM_ZVAL_DEREF_EX(info, 0, 1)
+		Z_PARAM_ZVAL_DEREF(info)
 	ZEND_PARSE_PARAMETERS_END();
 
 	if (argc == 2) {
-		zval_dtor(info);
+		zval_ptr_dtor(info);
 		array_init(info);
 	}
 

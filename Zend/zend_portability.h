@@ -197,17 +197,13 @@ char *alloca();
 # define ZEND_ATTRIBUTE_ALLOC_SIZE2(X,Y)
 #endif
 
-/* Format string checks are disabled by default, because we use custom format modifiers (like %p),
- * which cause a large amount of false positives. You can enable format checks by adding
- * -DZEND_CHECK_FORMAT_STRINGS to CFLAGS. */
-
-#if defined(ZEND_CHECK_FORMAT_STRINGS) && (ZEND_GCC_VERSION >= 2007 || __has_attribute(format))
+#if ZEND_GCC_VERSION >= 2007 || __has_attribute(format)
 # define ZEND_ATTRIBUTE_FORMAT(type, idx, first) __attribute__ ((format(type, idx, first)))
 #else
 # define ZEND_ATTRIBUTE_FORMAT(type, idx, first)
 #endif
 
-#if defined(ZEND_CHECK_FORMAT_STRINGS) && ((ZEND_GCC_VERSION >= 3001 && !defined(__INTEL_COMPILER)) || __has_attribute(format))
+#if (ZEND_GCC_VERSION >= 3001 && !defined(__INTEL_COMPILER)) || __has_attribute(format)
 # define ZEND_ATTRIBUTE_PTR_FORMAT(type, idx, first) __attribute__ ((format(type, idx, first)))
 #else
 # define ZEND_ATTRIBUTE_PTR_FORMAT(type, idx, first)
@@ -223,14 +219,22 @@ char *alloca();
 
 #if defined(__GNUC__) && ZEND_GCC_VERSION >= 4003
 # define ZEND_ATTRIBUTE_UNUSED __attribute__((unused))
-# define ZEND_ATTRIBUTE_UNUSED_LABEL __attribute__((cold, unused));
 # define ZEND_COLD __attribute__((cold))
 # define ZEND_HOT __attribute__((hot))
 #else
 # define ZEND_ATTRIBUTE_UNUSED
-# define ZEND_ATTRIBUTE_UNUSED_LABEL
 # define ZEND_COLD
 # define ZEND_HOT
+#endif
+
+#if defined(__GNUC__) && ZEND_GCC_VERSION >= 5000
+# define ZEND_ATTRIBUTE_UNUSED_LABEL __attribute__((cold, unused));
+# define ZEND_ATTRIBUTE_COLD_LABEL __attribute__((cold));
+# define ZEND_ATTRIBUTE_HOT_LABEL __attribute__((hot));
+#else
+# define ZEND_ATTRIBUTE_UNUSED_LABEL
+# define ZEND_ATTRIBUTE_COLD_LABEL
+# define ZEND_ATTRIBUTE_HOT_LABEL
 #endif
 
 #if defined(__GNUC__) && ZEND_GCC_VERSION >= 3004 && defined(__i386__)
@@ -476,7 +480,7 @@ static zend_always_inline double _zend_get_nan(void) /* {{{ */
 #define ZEND_STRL(str)		(str), (sizeof(str)-1)
 #define ZEND_STRS(str)		(str), (sizeof(str))
 #define ZEND_NORMALIZE_BOOL(n)			\
-	((n) ? (((n)>0) ? 1 : -1) : 0)
+	((n) ? (((n)<0) ? -1 : 1) : 0)
 #define ZEND_TRUTH(x)		((x) ? 1 : 0)
 #define ZEND_LOG_XOR(a, b)		(ZEND_TRUTH(a) ^ ZEND_TRUTH(b))
 
@@ -498,6 +502,18 @@ static zend_always_inline double _zend_get_nan(void) /* {{{ */
 #define ZEND_VALID_SOCKET(sock) ((sock) >= 0)
 #endif
 
+/* va_copy() is __va_copy() in old gcc versions.
+ * According to the autoconf manual, using
+ * memcpy(&dst, &src, sizeof(va_list))
+ * gives maximum portability. */
+#ifndef va_copy
+# ifdef __va_copy
+#  define va_copy(dest, src) __va_copy((dest), (src))
+# else
+#  define va_copy(dest, src) memcpy(&(dest), &(src), sizeof(va_list))
+# endif
+#endif
+
 #endif /* ZEND_PORTABILITY_H */
 
 /*
@@ -506,4 +522,6 @@ static zend_always_inline double _zend_get_nan(void) /* {{{ */
  * c-basic-offset: 4
  * indent-tabs-mode: t
  * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

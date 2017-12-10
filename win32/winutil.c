@@ -36,9 +36,9 @@ PHP_WINUTIL_API char *php_win32_error_to_msg(HRESULT error)
 	return (buf ? (char *) buf : "");
 }/*}}}*/
 
-int php_win32_check_trailing_space(const char * path, const int path_len)
+int php_win32_check_trailing_space(const char * path, const size_t path_len)
 {/*{{{*/
-	if (path_len < 1) {
+	if (path_len > MAXPATHLEN - 1) {
 		return 1;
 	}
 	if (path) {
@@ -371,6 +371,7 @@ PHP_WINUTIL_API int php_win32_code_to_errno(unsigned long w32Err)
 		/* 258 */   ,   { WAIT_TIMEOUT, ETIME}
 
         /* 267 */   ,   {   ERROR_DIRECTORY                 ,   ENOTDIR         }
+		/* 336 */   ,   {   ERROR_DIRECTORY_NOT_SUPPORTED   ,   EISDIR          }
 
         /* 996 */   ,   {   ERROR_IO_INCOMPLETE             ,   EAGAIN          }
         /* 997 */   ,   {   ERROR_IO_PENDING                ,   EAGAIN          }

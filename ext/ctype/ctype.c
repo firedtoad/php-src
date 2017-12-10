@@ -145,7 +145,7 @@ static PHP_MINFO_FUNCTION(ctype)
 #define CTYPE(iswhat) \
 	zval *c, tmp; \
 	ZEND_PARSE_PARAMETERS_START(1, 1); \
-		Z_PARAM_ZVAL_DEREF(c) \
+		Z_PARAM_ZVAL(c) \
 	ZEND_PARSE_PARAMETERS_END(); \
 	if (Z_TYPE_P(c) == IS_LONG) { \
 		if (Z_LVAL_P(c) <= 255 && Z_LVAL_P(c) >= 0) { \
@@ -153,11 +153,9 @@ static PHP_MINFO_FUNCTION(ctype)
 		} else if (Z_LVAL_P(c) >= -128 && Z_LVAL_P(c) < 0) { \
 			RETURN_BOOL(iswhat((int)Z_LVAL_P(c) + 256)); \
 		} \
-		tmp = *c; \
-		zval_copy_ctor(&tmp); \
-		convert_to_string(&tmp); \
+		ZVAL_STR(&tmp, zval_get_string_func(c)); \
 	} else { \
-		tmp = *c; \
+		ZVAL_COPY_VALUE(&tmp, c); \
 	} \
 	if (Z_TYPE(tmp) == IS_STRING) { \
 		char *p = Z_STRVAL(tmp), *e = Z_STRVAL(tmp) + Z_STRLEN(tmp); \

@@ -439,6 +439,34 @@ if test "$PHP_PASSWORD_ARGON2" != "no"; then
   ], [
     AC_MSG_ERROR([Problem with libargon2.(a|so). Please verify that Argon2 header and libaries are installed])
   ])
+
+  AC_CHECK_LIB(argon2, argon2id_hash_raw, [
+    LIBS="$LIBS -largon2"
+    AC_DEFINE(HAVE_ARGON2ID, 1, [ Define to 1 if Argon2 library has support for Argon2ID])
+  ], [
+    AC_MSG_RESULT([not found])
+  ])
+fi
+
+dnl
+dnl net_get_interfaces
+dnl
+AC_CHECK_HEADERS([net/if.h netdb.h])
+AC_MSG_CHECKING([for usable getifaddrs])
+AC_TRY_LINK([
+  #include <sys/types.h>
+  #include <ifaddrs.h>
+],[
+  struct ifaddrs *interfaces;
+  if (!getifaddrs(&interfaces)) {
+      freeifaddrs(interfaces);
+  }
+], [ac_have_getifaddrs=yes], [ac_have_getifaddrs=no])
+if test "$ac_have_getifaddrs" = "yes" ; then
+  AC_DEFINE(HAVE_GETIFADDRS, 1, [whether getifaddrs is present and usable])
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_RESULT(no)
 fi
 
 dnl
@@ -455,7 +483,7 @@ PHP_NEW_EXTENSION(standard, array.c base64.c basic_functions.c browscap.c crc32.
                             http_fopen_wrapper.c php_fopen_wrapper.c credits.c css.c \
                             var_unserializer.c ftok.c sha1.c user_filters.c uuencode.c \
                             filters.c proc_open.c streamsfuncs.c http.c password.c \
-                            random.c,,,
+                            random.c net.c,,,
 			    -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1)
 
 PHP_ADD_MAKEFILE_FRAGMENT

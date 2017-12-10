@@ -646,7 +646,7 @@ static void sapi_header_add_op(sapi_header_op_enum op, sapi_header_struct *sapi_
 				char sav = *colon_offset;
 
 				*colon_offset = 0;
-		        sapi_remove_header(&SG(sapi_headers).headers, sapi_header->header, (int)strlen(sapi_header->header));
+		        sapi_remove_header(&SG(sapi_headers).headers, sapi_header->header, strlen(sapi_header->header));
 				*colon_offset = sav;
 			}
 		}
@@ -948,12 +948,17 @@ SAPI_API int sapi_register_post_entries(sapi_post_entry *post_entries)
 
 SAPI_API int sapi_register_post_entry(sapi_post_entry *post_entry)
 {
+	int ret;
+	zend_string *key;
 	if (SG(sapi_started) && EG(current_execute_data)) {
 		return FAILURE;
 	}
-	return zend_hash_str_add_mem(&SG(known_post_content_types),
-			post_entry->content_type, post_entry->content_type_len,
+	key = zend_string_init(post_entry->content_type, post_entry->content_type_len, 1);
+	GC_MAKE_PERSISTENT_LOCAL(key);
+	ret = zend_hash_add_mem(&SG(known_post_content_types), key,
 			(void *) post_entry, sizeof(sapi_post_entry)) ? SUCCESS : FAILURE;
+	zend_string_release(key);
+	return ret;
 }
 
 SAPI_API void sapi_unregister_post_entry(sapi_post_entry *post_entry)
@@ -1027,6 +1032,12 @@ SAPI_API char *sapi_getenv(char *name, size_t name_len)
 		char *value, *tmp = sapi_module.getenv(name, name_len);
 		if (tmp) {
 			value = estrdup(tmp);
+#ifdef PHP_WIN32
+			if (strlen(sapi_module.name) == sizeof("cgi-fcgi") - 1 && !strcmp(sapi_module.name, "cgi-fcgi")) {
+				/* XXX more modules to go, if needed. */
+				free(tmp);
+			}
+#endif
 		} else {
 			return NULL;
 		}

@@ -795,7 +795,7 @@ PHP_FUNCTION(posix_ttyname)
 #endif
 
 	ZEND_PARSE_PARAMETERS_START(1, 1)
-		Z_PARAM_ZVAL_DEREF(z_fd)
+		Z_PARAM_ZVAL(z_fd)
 	ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE);
 
 	switch (Z_TYPE_P(z_fd)) {
@@ -805,8 +805,7 @@ PHP_FUNCTION(posix_ttyname)
 			}
 			break;
 		default:
-			convert_to_long_ex(z_fd);
-			fd = Z_LVAL_P(z_fd);
+			fd = zval_get_long(z_fd);
 	}
 #if defined(ZTS) && defined(HAVE_TTYNAME_R) && defined(_SC_TTY_NAME_MAX)
 	buflen = sysconf(_SC_TTY_NAME_MAX);
@@ -840,7 +839,7 @@ PHP_FUNCTION(posix_isatty)
 	int fd;
 
 	ZEND_PARSE_PARAMETERS_START(1, 1)
-		Z_PARAM_ZVAL_DEREF(z_fd)
+		Z_PARAM_ZVAL(z_fd)
 	ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE);
 
 	switch (Z_TYPE_P(z_fd)) {
@@ -850,8 +849,7 @@ PHP_FUNCTION(posix_isatty)
 			}
 			break;
 		default:
-			convert_to_long_ex(z_fd);
-			fd = Z_LVAL_P(z_fd);
+			fd = zval_get_long(z_fd);
 	}
 
 	if (isatty(fd)) {

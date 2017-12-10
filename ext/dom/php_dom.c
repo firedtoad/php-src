@@ -302,10 +302,13 @@ static int dom_write_na(dom_object *obj, zval *newval)
 static void dom_register_prop_handler(HashTable *prop_handler, char *name, size_t name_len, dom_read_t read_func, dom_write_t write_func)
 {
 	dom_prop_handler hnd;
+	zend_string *str;
 
 	hnd.read_func = read_func ? read_func : dom_read_na;
 	hnd.write_func = write_func ? write_func : dom_write_na;
-	zend_hash_str_add_mem(prop_handler, name, name_len, &hnd, sizeof(dom_prop_handler));
+	str = zend_string_init_interned(name, name_len, 1);
+	zend_hash_add_mem(prop_handler, str, &hnd, sizeof(dom_prop_handler));
+	zend_string_release(str);
 }
 /* }}} */
 
@@ -499,12 +502,12 @@ PHP_FUNCTION(dom_import_simplexml)
 }
 /* }}} */
 
-static dom_object* dom_objects_set_class(zend_class_entry *class_type, zend_bool hash_copy);
+static dom_object* dom_objects_set_class(zend_class_entry *class_type);
 
 static zend_object *dom_objects_store_clone_obj(zval *zobject) /* {{{ */
 {
 	dom_object *intern = Z_DOMOBJ_P(zobject);
-	dom_object *clone = dom_objects_set_class(intern->std.ce, 0);
+	dom_object *clone = dom_objects_set_class(intern->std.ce);
 
 	clone->std.handlers = dom_get_obj_handlers();
 
@@ -706,7 +709,7 @@ PHP_MINIT_FUNCTION(dom)
 	ce.create_object = dom_nnodemap_objects_new;
 	dom_nodelist_class_entry = zend_register_internal_class_ex(&ce, NULL);
 	dom_nodelist_class_entry->get_iterator = php_dom_get_iterator;
-	zend_class_implements(dom_nodelist_class_entry, 1, zend_ce_traversable);
+	zend_class_implements(dom_nodelist_class_entry, 2, zend_ce_traversable, zend_ce_countable);
 
 	zend_hash_init(&dom_nodelist_prop_handlers, 0, NULL, dom_dtor_prop_handler, 1);
 	dom_register_prop_handler(&dom_nodelist_prop_handlers, "length", sizeof("length")-1, dom_nodelist_length_read, NULL);
@@ -716,7 +719,7 @@ PHP_MINIT_FUNCTION(dom)
 	ce.create_object = dom_nnodemap_objects_new;
 	dom_namednodemap_class_entry = zend_register_internal_class_ex(&ce, NULL);
 	dom_namednodemap_class_entry->get_iterator = php_dom_get_iterator;
-	zend_class_implements(dom_namednodemap_class_entry, 1, zend_ce_traversable);
+	zend_class_implements(dom_namednodemap_class_entry, 2, zend_ce_traversable, zend_ce_countable);
 
 	zend_hash_init(&dom_namednodemap_prop_handlers, 0, NULL, dom_dtor_prop_handler, 1);
 	dom_register_prop_handler(&dom_namednodemap_prop_handlers, "length", sizeof("length")-1, dom_namednodemap_length_read, NULL);
@@ -1070,9 +1073,9 @@ void dom_namednode_iter(dom_object *basenode, int ntype, dom_object *intern, xml
 }
 /* }}} */
 
-static dom_object* dom_objects_set_class(zend_class_entry *class_type, zend_bool hash_copy) /* {{{ */
+static dom_object* dom_objects_set_class(zend_class_entry *class_type) /* {{{ */
 {
-	dom_object *intern = ecalloc(1, sizeof(dom_object) + zend_object_properties_size(class_type));
+	dom_object *intern = zend_object_alloc(sizeof(dom_object), class_type);
 
 	zend_class_entry *base_class = class_type;
 	while ((base_class->type != ZEND_INTERNAL_CLASS || base_class->info.internal.module->module_number != dom_module_entry.module_number) && base_class->parent != NULL) {
@@ -1082,9 +1085,7 @@ static dom_object* dom_objects_set_class(zend_class_entry *class_type, zend_bool
 	intern->prop_handler = zend_hash_find_ptr(&classes, base_class->name);
 
 	zend_object_std_init(&intern->std, class_type);
-	if (hash_copy) {
-		object_properties_init(&intern->std, class_type);
-	}
+	object_properties_init(&intern->std, class_type);
 
 	return intern;
 }
@@ -1093,7 +1094,7 @@ static dom_object* dom_objects_set_class(zend_class_entry *class_type, zend_bool
 /* {{{ dom_objects_new */
 zend_object *dom_objects_new(zend_class_entry *class_type)
 {
-	dom_object *intern = dom_objects_set_class(class_type, 1);
+	dom_object *intern = dom_objects_set_class(class_type);
 	intern->std.handlers = dom_get_obj_handlers();
 	return &intern->std;
 }
@@ -1103,10 +1104,9 @@ zend_object *dom_objects_new(zend_class_entry *class_type)
 /* {{{ zend_object dom_xpath_objects_new(zend_class_entry *class_type) */
 zend_object *dom_xpath_objects_new(zend_class_entry *class_type)
 {
-	dom_xpath_object *intern = ecalloc(1, sizeof(dom_xpath_object) + zend_object_properties_size(class_type));
+	dom_xpath_object *intern = zend_object_alloc(sizeof(dom_xpath_object), class_type);
 
-	ALLOC_HASHTABLE(intern->registered_phpfunctions);
-	zend_hash_init(intern->registered_phpfunctions, 0, NULL, ZVAL_PTR_DTOR, 0);
+	intern->registered_phpfunctions = zend_new_array(0);
 
 	intern->dom.prop_handler = &dom_xpath_prop_handlers;
 	intern->dom.std.handlers = &dom_xpath_object_handlers;
@@ -1158,7 +1158,7 @@ zend_object *dom_nnodemap_objects_new(zend_class_entry *class_type) /* {{{ */
 	dom_object *intern;
 	dom_nnodemap_object *objmap;
 
-	intern = dom_objects_set_class(class_type, 1);
+	intern = dom_objects_set_class(class_type);
 	intern->ptr = emalloc(sizeof(dom_nnodemap_object));
 	objmap = (dom_nnodemap_object *)intern->ptr;
 	ZVAL_UNDEF(&objmap->baseobj_zv);
@@ -1200,7 +1200,7 @@ PHP_DOM_EXPORT zend_bool php_dom_create_object(xmlNodePtr obj, zval *return_valu
 	}
 
 	if ((intern = (dom_object *) php_dom_object_get_data((void *) obj))) {
-		GC_REFCOUNT(&intern->std)++;
+		GC_ADDREF(&intern->std);
 		ZVAL_OBJ(return_value, &intern->std);
 		return 1;
 	}

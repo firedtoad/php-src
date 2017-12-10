@@ -29,7 +29,7 @@
 
 ZEND_API void zend_object_std_init(zend_object *object, zend_class_entry *ce)
 {
-	GC_REFCOUNT(object) = 1;
+	GC_SET_REFCOUNT(object, 1);
 	GC_TYPE_INFO(object) = IS_OBJECT | (GC_COLLECTABLE << GC_FLAGS_SHIFT);
 	object->ce = ce;
 	object->properties = NULL;
@@ -46,7 +46,7 @@ ZEND_API void zend_object_std_dtor(zend_object *object)
 
 	if (object->properties) {
 		if (EXPECTED(!(GC_FLAGS(object->properties) & IS_ARRAY_IMMUTABLE))) {
-			if (EXPECTED(--GC_REFCOUNT(object->properties) == 0)) {
+			if (EXPECTED(GC_DELREF(object->properties) == 0)) {
 				zend_array_destroy(object->properties);
 			}
 		}
@@ -76,7 +76,7 @@ ZEND_API void zend_object_std_dtor(zend_object *object)
 
 ZEND_API void zend_objects_destroy_object(zend_object *object)
 {
-	zend_function *destructor = object ? object->ce->destructor : NULL;
+	zend_function *destructor = object->ce->destructor;
 
 	if (destructor) {
 		zend_object *old_exception;
@@ -125,7 +125,7 @@ ZEND_API void zend_objects_destroy_object(zend_object *object)
 			}
 		}
 
-		GC_REFCOUNT(object)++;
+		GC_ADDREF(object);
 		ZVAL_OBJ(&obj, object);
 
 		/* Make sure that destructors are protected from previously thrown exceptions.
@@ -183,7 +183,7 @@ ZEND_API void zend_objects_clone_members(zend_object *new_object, zend_object *o
 		/* fast copy */
 		if (EXPECTED(old_object->handlers == &std_object_handlers)) {
 			if (EXPECTED(!(GC_FLAGS(old_object->properties) & IS_ARRAY_IMMUTABLE))) {
-				GC_REFCOUNT(old_object->properties)++;
+				GC_ADDREF(old_object->properties);
 			}
 			new_object->properties = old_object->properties;
 			return;
@@ -197,8 +197,7 @@ ZEND_API void zend_objects_clone_members(zend_object *new_object, zend_object *o
 		zend_string *key;
 
 		if (!new_object->properties) {
-			ALLOC_HASHTABLE(new_object->properties);
-			zend_hash_init(new_object->properties, zend_hash_num_elements(old_object->properties), NULL, ZVAL_PTR_DTOR, 0);
+			new_object->properties = zend_new_array(zend_hash_num_elements(old_object->properties));
 			zend_hash_real_init(new_object->properties, 0);
 		} else {
 			zend_hash_extend(new_object->properties, new_object->properties->nNumUsed + zend_hash_num_elements(old_object->properties), 0);
@@ -263,4 +262,6 @@ ZEND_API zend_object *zend_objects_clone_obj(zval *zobject)
  * c-basic-offset: 4
  * indent-tabs-mode: t
  * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

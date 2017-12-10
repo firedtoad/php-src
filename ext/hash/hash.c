@@ -98,7 +98,7 @@ PHP_HASH_API void php_hash_register_algo(const char *algo, const php_hash_ops *o
 {
 	size_t algo_len = strlen(algo);
 	char *lower = zend_str_tolower_dup(algo, algo_len);
-	zend_hash_str_add_ptr(&php_hash_hashtable, lower, algo_len, (void *) ops);
+	zend_hash_add_ptr(&php_hash_hashtable, zend_string_init_interned(lower, algo_len, 1), (void *) ops);
 	efree(lower);
 }
 /* }}} */
@@ -357,7 +357,7 @@ static void php_hashcontext_ctor(INTERNAL_FUNCTION_PARAMETERS, zval *objval) {
 			zval_dtor(return_value);
 			RETURN_FALSE;
 		}
-		if (!key || (ZSTR_LEN(key) <= 0)) {
+		if (!key || (ZSTR_LEN(key) == 0)) {
 			/* Note: a zero length key is no key at all */
 			php_error_docref(NULL, E_WARNING, "HMAC requested without a key");
 			zval_dtor(return_value);
@@ -593,6 +593,22 @@ PHP_FUNCTION(hash_algos)
 	array_init(return_value);
 	ZEND_HASH_FOREACH_STR_KEY(&php_hash_hashtable, str) {
 		add_next_index_str(return_value, zend_string_copy(str));
+	} ZEND_HASH_FOREACH_END();
+}
+/* }}} */
+
+/* {{{ proto array hash_hmac_algos(void)
+Return a list of registered hashing algorithms suitable for hash_hmac() */
+PHP_FUNCTION(hash_hmac_algos)
+{
+	zend_string *str;
+	const php_hash_ops *ops;
+
+	array_init(return_value);
+	ZEND_HASH_FOREACH_STR_KEY_PTR(&php_hash_hashtable, str, ops) {
+		if (ops->is_crypto) {
+			add_next_index_str(return_value, zend_string_copy(str));
+		}
 	} ZEND_HASH_FOREACH_END();
 }
 /* }}} */
@@ -1090,11 +1106,11 @@ PHP_FUNCTION(mhash_keygen_s2k)
 
 /* {{{ php_hashcontext_create */
 static zend_object* php_hashcontext_create(zend_class_entry *ce) {
-	php_hashcontext_object *objval = ecalloc(1,
-		sizeof(php_hashcontext_object) + zend_object_properties_size(ce));
-	zend_object *zobj = &(objval->std);
+	php_hashcontext_object *objval = zend_object_alloc(sizeof(php_hashcontext_object), ce);
+	zend_object *zobj = &objval->std;
 
 	zend_object_std_init(zobj, ce);
+	object_properties_init(zobj, ce);
 	zobj->handlers = &php_hashcontext_handlers;
 
 	return zobj;
@@ -1429,6 +1445,7 @@ const zend_function_entry hash_functions[] = {
 	PHP_FE(hash_copy,								arginfo_hash_copy)
 
 	PHP_FE(hash_algos,								arginfo_hash_algos)
+	PHP_FE(hash_hmac_algos,							arginfo_hash_algos)
 	PHP_FE(hash_pbkdf2,								arginfo_hash_pbkdf2)
 	PHP_FE(hash_equals,								arginfo_hash_equals)
 	PHP_FE(hash_hkdf,								arginfo_hash_hkdf)

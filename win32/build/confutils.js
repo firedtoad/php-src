@@ -39,6 +39,8 @@ var INTELVERS = -1;
 var COMPILER_NUMERIC_VERSION = -1;
 var COMPILER_NAME = "unknown";
 var PHP_OBJECT_OUT_DIR = "";
+var PHP_CONFIG_PROFILE = "no";
+var PHP_SANITIZER = "no";
 
 var PHP_TEST_INI_PATH = "";
 var PHP_TEST_INI = "";
@@ -46,7 +48,8 @@ var PHP_TEST_INI_EXT_EXCLUDE = "";
 
 var PHP_MAKEFILE_FRAGMENTS = PHP_SRC_DIR + "\\Makefile.fragments.w32";
 
-/* Care also about NTDDI_VERSION and _WIN32_WINNT in config.w32.h.in */
+/* Care also about NTDDI_VERSION and _WIN32_WINNT in config.w32.h.in 
+   and manifest. */
 var WINVER = "0x0601"; /* 7/2008r2 */
 
 // There's a minimum requirement for re2c..
@@ -61,18 +64,23 @@ var sapi_enabled = new Array();
 /* Store the headers to install */
 var headers_install = new Array();
 
+/* Store unknown configure options */
+var INVALID_CONFIG_ARGS = new Array();
+
 /* Mapping CL version > human readable name */
 var VC_VERSIONS = new Array();
 VC_VERSIONS[1700] = 'MSVC11 (Visual C++ 2012)';
 VC_VERSIONS[1800] = 'MSVC12 (Visual C++ 2013)';
 VC_VERSIONS[1900] = 'MSVC14 (Visual C++ 2015)';
 VC_VERSIONS[1910] = 'MSVC15 (Visual C++ 2017)';
+VC_VERSIONS[1911] = 'MSVC15 (Visual C++ 2017)';
 
 var VC_VERSIONS_SHORT = new Array();
 VC_VERSIONS_SHORT[1700] = 'VC11';
 VC_VERSIONS_SHORT[1800] = 'VC12';
 VC_VERSIONS_SHORT[1900] = 'VC14';
 VC_VERSIONS_SHORT[1910] = 'VC15';
+VC_VERSIONS_SHORT[1911] = 'VC15';
 
 if (PROGRAM_FILES == null) {
 	PROGRAM_FILES = "C:\\Program Files";
@@ -98,10 +106,10 @@ if (typeof(CWD) == "undefined") {
 
 /* defaults; we pick up the precise versions from configure.ac */
 var PHP_VERSION = 7;
-var PHP_MINOR_VERSION = 1;
+var PHP_MINOR_VERSION = 3;
 var PHP_RELEASE_VERSION = 0;
 var PHP_EXTRA_VERSION = "";
-var PHP_VERSION_STRING = "7.2.0";
+var PHP_VERSION_STRING = "7.3.0";
 
 /* Get version numbers and DEFINE as a string */
 function get_version_numbers()
@@ -399,9 +407,13 @@ function conf_process_args()
 			}
 		}
 		if (!found) {
-			STDERR.WriteLine("Unknown option " + argname + "; please try configure.js --help for a list of valid options");
-			WScript.Quit(2);
+			INVALID_CONFIG_ARGS[INVALID_CONFIG_ARGS.length] = argname;
 		}
+	}
+
+	if (PHP_SNAPSHOT_BUILD != 'no' && INVALID_CONFIG_ARGS.length) {
+		STDERR.WriteLine('Unknown option ' + INVALID_CONFIG_ARGS[0] + '; please try configure.js --help for a list of valid options');
+		WScript.Quit(2);
 	}
 
 	if (configure_help_mode) {
@@ -1110,7 +1122,7 @@ function generate_version_info_resource(makefiletarget, basename, creditspath, s
 	 */
 	if (FSO.FileExists(creditspath + '\\template.rc')) {
 		MFO.WriteLine("$(BUILD_DIR)\\" + resname + ": " + creditspath + "\\template.rc");
-		MFO.WriteLine("\t$(RC) /fo $(BUILD_DIR)\\" + resname + logo + debug +
+		MFO.WriteLine("\t$(RC) /nologo /fo $(BUILD_DIR)\\" + resname + logo + debug +
 			' /d FILE_DESCRIPTION="\\"' + res_desc + '\\"" /d FILE_NAME="\\"' +
 			makefiletarget + '\\"" /d PRODUCT_NAME="\\"' + res_prod_name +
 			versioning + '\\"" /d THANKS_GUYS="\\"' + thanks + '\\"" ' +
@@ -1119,14 +1131,14 @@ function generate_version_info_resource(makefiletarget, basename, creditspath, s
 	}
 	if (MODE_PHPIZE) {
 		MFO.WriteLine("$(BUILD_DIR)\\" + resname + ": $(PHP_DIR)\\build\\template.rc");
-		MFO.WriteLine("\t$(RC)  /I $(PHP_DIR)/include /n /fo $(BUILD_DIR)\\" + resname + logo + debug +
+		MFO.WriteLine("\t$(RC) /nologo /I $(PHP_DIR)/include /n /fo $(BUILD_DIR)\\" + resname + logo + debug +
 			' /d FILE_DESCRIPTION="\\"' + res_desc + '\\"" /d FILE_NAME="\\"'
 			+ makefiletarget + '\\"" /d URL="\\"' + project_url + 
 			'\\"" /d INTERNAL_NAME="\\"' + internal_name + versioning + 
 			'\\"" /d THANKS_GUYS="\\"' + thanks + '\\"" $(PHP_DIR)\\build\\template.rc');
 	} else {
 		MFO.WriteLine("$(BUILD_DIR)\\" + resname + ": win32\\build\\template.rc");
-		MFO.WriteLine("\t$(RC) /n /fo $(BUILD_DIR)\\" + resname + logo + debug +
+		MFO.WriteLine("\t$(RC) /nologo /n /fo $(BUILD_DIR)\\" + resname + logo + debug +
 			' /d FILE_DESCRIPTION="\\"' + res_desc + '\\"" /d FILE_NAME="\\"'
 			+ makefiletarget + '\\"" /d URL="\\"' + project_url + 
 			'\\"" /d INTERNAL_NAME="\\"' + internal_name + versioning + 
@@ -1220,17 +1232,14 @@ function SAPI(sapiname, file_list, makefiletarget, cflags, obj_dir)
 		// Add compiler and link flags if PGO options are selected
 		if (PHP_DEBUG != "yes" && PHP_PGI == "yes") {
 			ADD_FLAG('CFLAGS_' + SAPI, "/GL /O2");
-			ADD_FLAG('LDFLAGS_' + SAPI, "/LTCG:PGINSTRUMENT");
+			ADD_FLAG('LDFLAGS_' + SAPI, "/LTCG /GENPROFILE");
 		}
 		else if (PHP_DEBUG != "yes" && PHP_PGO != "no") {
 			ADD_FLAG('CFLAGS_' + SAPI, "/GL /O2");
-			ADD_FLAG('LDFLAGS_' + SAPI, "/LTCG:PGUPDATE");
+			ADD_FLAG('LDFLAGS_' + SAPI, "/LTCG /USEPROFILE");
 		}
 
 		ldflags += " /PGD:$(PGOPGD_DIR)\\" + makefiletarget.substring(0, makefiletarget.indexOf(".")) + ".pgd";
-	} else if (PHP_DEBUG != "yes") {
-		ADD_FLAG('CFLAGS_' + SAPI, "/GL");
-		ADD_FLAG('LDFLAGS_' + SAPI, "/LTCG:INCREMENTAL");
 	}
 
 	if (MODE_PHPIZE) {
@@ -1364,6 +1373,13 @@ function ADD_EXTENSION_DEP(extname, dependson, optional)
 
 var static_pgo_enabled = false;
 
+function ZEND_EXTENSION(extname, file_list, shared, cflags, dllname, obj_dir)
+{
+	EXTENSION(extname, file_list, shared, cflags, dllname, obj_dir);
+
+	extensions_enabled[extensions_enabled.length - 1][2] = true;
+}
+
 function EXTENSION(extname, file_list, shared, cflags, dllname, obj_dir)
 {
 	var objs = null;
@@ -1422,18 +1438,15 @@ function EXTENSION(extname, file_list, shared, cflags, dllname, obj_dir)
 		if (is_pgo_desired(extname) && (PHP_PGI == "yes" || PHP_PGO != "no")) {
 			// Add compiler and link flags if PGO options are selected
 			if (PHP_DEBUG != "yes" && PHP_PGI == "yes") {
-				ADD_FLAG('LDFLAGS_' + EXT, "/LTCG:PGINSTRUMENT");
+				ADD_FLAG('LDFLAGS_' + EXT, "/LTCG /GENPROFILE");
 			}
 			else if (PHP_DEBUG != "yes" && PHP_PGO != "no") {
-				ADD_FLAG('LDFLAGS_' + EXT, "/LTCG:PGUPDATE");
+				ADD_FLAG('LDFLAGS_' + EXT, "/LTCG /USEPROFILE");
 			}
 
 			ADD_FLAG('CFLAGS_' + EXT, "/GL /O2");
 
 			ldflags = " /PGD:$(PGOPGD_DIR)\\" + dllname.substring(0, dllname.indexOf(".")) + ".pgd";
-		} else if (PHP_DEBUG != "yes") {
-			ADD_FLAG('CFLAGS_' + EXT, "/GL");
-			ADD_FLAG('LDFLAGS_' + EXT, "/LTCG:INCREMENTAL");
 		}
 
 		MFO.WriteLine("$(BUILD_DIR)\\" + libname + ": $(BUILD_DIR)\\" + dllname);
@@ -1476,9 +1489,6 @@ function EXTENSION(extname, file_list, shared, cflags, dllname, obj_dir)
 				ADD_FLAG("STATIC_EXT_CFLAGS", "/GL /O2");
 				static_pgo_enabled = true;
 			}
-		} else if (PHP_DEBUG != "yes") {
-			ADD_FLAG("STATIC_EXT_CFLAGS", "/GL");
-			ADD_FLAG('STATIC_EXT_LDFLAGS', "/LTCG:INCREMENTAL");
 		}
 
 		/* find the header that declares the module pointer,
@@ -1506,7 +1516,8 @@ function EXTENSION(extname, file_list, shared, cflags, dllname, obj_dir)
 	}
 	ADD_FLAG("CFLAGS_" + EXT, cflags);
 
-	extensions_enabled[extensions_enabled.length] = [extname, shared ? 'shared' : 'static'];
+	// [extname, shared, zend]
+	extensions_enabled[extensions_enabled.length] = [extname, shared ? 'shared' : 'static', false];
 }
 
 function ADD_SOURCES(dir, file_list, target, obj_dir)
@@ -1640,7 +1651,7 @@ function ADD_SOURCES(dir, file_list, target, obj_dir)
 				vc_ver = probe_binary(PATH_PROG('cl', null));
 			}
 
-			analyzer_base_args += " -fms-compatibility -fms-compatibility-version=" + vc_ver + " -fms-extensions";
+			analyzer_base_args += " -fms-compatibility -fms-compatibility-version=" + vc_ver + " -fms-extensions -Xclang -analyzer-output=text";
 		} else if (PHP_ANALYZER == "cppcheck") {
 			var analyzer_base_args = "";
 			var analyzer_base_flags = "";
@@ -1691,7 +1702,7 @@ function ADD_SOURCES(dir, file_list, target, obj_dir)
 				MFO.WriteLine("\t@$(CC) $(" + flags + ") $(CFLAGS) $(" + bd_flags_name + ") /c " + dir + "\\" + src + " /Fo" + sub_build + d + obj);
 
 				if ("clang" == PHP_ANALYZER) {
-					MFO.WriteLine("\t\"@$(CLANG_CL)\" " + analyzer_base_args + " $(" + flags + "_ANALYZER) $(CFLAGS_ANALYZER) $(" + bd_flags_name + "_ANALYZER) " + dir + "\\" + src); 
+					MFO.WriteLine("\t@\"$(CLANG_CL)\" " + analyzer_base_args + " $(" + flags + "_ANALYZER) $(CFLAGS_ANALYZER) $(" + bd_flags_name + "_ANALYZER) " + dir + "\\" + src); 
 				} else if ("cppcheck" == PHP_ANALYZER) {
 					MFO.WriteLine("\t\"@$(CPPCHECK)\" " + analyzer_base_args + " $(" + flags + "_ANALYZER) $(CFLAGS_ANALYZER) $(" + bd_flags_name + "_ANALYZER) " + analyzer_base_flags + " " + dir + "\\" + src); 
 				}else if (PHP_ANALYZER == "pvs") {
@@ -1867,14 +1878,42 @@ function output_as_table(header, ar_out)
 	STDOUT.WriteLine(sep);
 }
 
+function write_extensions_summary()
+{
+	var exts = new Array();
+	var zend_exts = new Array();
+
+	for(var x = 0; x < extensions_enabled.length; ++x)
+	{
+		var l = extensions_enabled[x];
+
+		if(l[2])
+		{
+			zend_exts.push([l[0], l[1]]);
+		}
+		else
+		{
+			exts.push([l[0], l[1]]);
+		}
+	}
+
+	STDOUT.WriteLine('Enabled extensions:');
+	output_as_table(['Extension', 'Mode'], exts.sort());
+
+	if(zend_exts.length)
+	{
+		STDOUT.WriteBlankLines(2);
+		STDOUT.WriteLine('Enabled Zend extensions:');
+		output_as_table(['Extension', 'Mode'], zend_exts.sort());
+	}
+}
+
 function write_summary()
 {
 	var ar = new Array();
 
 	STDOUT.WriteBlankLines(2);
-
-	STDOUT.WriteLine("Enabled extensions:");
-	output_as_table(["Extension", "Mode"], extensions_enabled.sort());
+	write_extensions_summary();
 	STDOUT.WriteBlankLines(2);
 	if (!MODE_PHPIZE) {
 		STDOUT.WriteLine("Enabled SAPI:");
@@ -1944,8 +1983,10 @@ function generate_tmp_php_ini()
 			continue;
 		}
 		
-		var directive = "extension";
-		if ("opcache" == extensions_enabled[i][0]) {
+		var directive = (extensions_enabled[i][2] ? 'zend_extension' : 'extension');
+
+		// FIXME: Remove this once ZEND_EXTENSION() is merged to XDEBUG
+		if ("xdebug" == extensions_enabled[i][0]) {
 			directive = "zend_extension";
 		}
 
@@ -1959,7 +2000,7 @@ function generate_tmp_php_ini()
 		}
 	}
 
-	INI.Close();;
+	INI.Close();
 }
 
 function generate_files()
@@ -2011,6 +2052,17 @@ function generate_files()
 	STDOUT.WriteLine("Done.");
 	STDOUT.WriteBlankLines(1);
 	write_summary();
+
+	if (INVALID_CONFIG_ARGS.length) {
+		STDOUT.WriteLine('WARNING');
+		STDOUT.WriteLine('The following arguments is invalid, and therefore ignored:');
+
+		for (var i = 0; i < INVALID_CONFIG_ARGS.length; ++i) {
+			STDOUT.WriteLine(' ' + INVALID_CONFIG_ARGS[i]);
+		}
+
+		STDOUT.WriteBlankLines(2);
+	}
 
 	if (PHP_SNAPSHOT_BUILD != "no") {
 		STDOUT.WriteLine("Type 'nmake snap' to build a PHP snapshot");
@@ -2212,11 +2264,16 @@ function generate_config_h()
 		outfile.WriteLine("#define " + keys[i] + " " + pieces);
 	}
 
-	if (VS_TOOLSET && VCVERS >= 1800) {
-		outfile.WriteLine("");
-		outfile.WriteLine("#define HAVE_ACOSH 1");
-		outfile.WriteLine("#define HAVE_ASINH 1");
-		outfile.WriteLine("#define HAVE_ATANH 1");
+	if (VS_TOOLSET) {
+		if (VCVERS >= 1800) {
+			outfile.WriteLine("");
+			outfile.WriteLine("#define HAVE_ACOSH 1");
+			outfile.WriteLine("#define HAVE_ASINH 1");
+			outfile.WriteLine("#define HAVE_ATANH 1");
+		}
+		if (VCVERS >= 1900) {
+			outfile.WriteLine("#define HAVE_LOG1P 1");
+		}
 	}
 
 	
@@ -2271,6 +2328,7 @@ function generate_phpize()
 	CJ.WriteLine("var PHP_DEBUG=" + '"' + PHP_DEBUG + '"');
 	CJ.WriteLine("var PHP_DLL_LIB =" + '"' + get_define('PHPLIB') + '"');
 	CJ.WriteLine("var PHP_DLL =" + '"' + get_define('PHPDLL') + '"');
+	CJ.WriteLine("var PHP_SECURITY_FLAGS =" + '"' + PHP_SECURITY_FLAGS + '"');
 
 	/* The corresponding configure options aren't enabled through phpize,
 		thus these dummy declarations are required. */
@@ -2500,6 +2558,11 @@ function generate_makefile()
 	}
 	MF.WriteLine("set-tmp-env:");
 	MF.WriteLine("	@set PATH=" + extra_path + ";$(PATH)");
+
+	MF.WriteBlankLines(2);
+
+	MF.WriteLine("dump-tmp-env: set-tmp-env");
+	MF.WriteLine("	@set");
 
 	MF.WriteBlankLines(2);
 
@@ -2896,28 +2959,24 @@ function toolset_setup_project_tools()
 
 	RE2C = PATH_PROG('re2c');
 	if (RE2C) {
-		var intvers, intmin;
-		var pattern = /\./g;
-
-		RE2CVERS = probe_binary(RE2C, "version");
+		var RE2CVERS = probe_binary(RE2C, "version");
 		STDOUT.WriteLine('  Detected re2c version ' + RE2CVERS);
 
 		if (RE2CVERS.match(/^\d+.\d+$/)) {
 			RE2CVERS += ".0";
 		}
 
-		intvers = RE2CVERS.replace(pattern, '') - 0;
-		intmin = MINRE2C.replace(pattern, '') - 0;
+		var hm = RE2CVERS.match(/(\d+)\.(\d+)\.(\d+)/);
+		var nm = MINRE2C.match(/(\d+)\.(\d+)\.(\d+)/);
+
+		var intvers =  (hm[1]-0)*10000 + (hm[2]-0)*100 + (hm[3]-0);
+		var intmin =  (nm[1]-0)*10000 + (nm[2]-0)*100 + (nm[3]-0);
 
 		if (intvers < intmin) {
-			STDOUT.WriteLine('WARNING: The minimum RE2C version requirement is ' + MINRE2C);
-			STDOUT.WriteLine('Parsers will not be generated. Upgrade your copy at http://sf.net/projects/re2c');
-			DEFINE('RE2C', '');
-		} else {
-			DEFINE('RE2C_FLAGS', '');
+			ERROR('The minimum RE2C version requirement is ' + MINRE2C);
 		}
 	} else {
-		STDOUT.WriteLine('Parsers will not be regenerated');
+		ERROR('re2c is required')
 	}
 	PATH_PROG('zip');
 	PATH_PROG('lemon');
@@ -3389,7 +3448,7 @@ function check_binary_tools_sdk()
 
 	/* Basic test, extend by need. */
 	if (BIN_TOOLS_SDK_VER_MAJOR < 2) {
-		ERROR("Incompatible binary tools version. Please consult https://wiki.php.net/internals/windows/stepbystepbuild_sdk_2");
+		ERROR("Incompatible binary tools version. Please consult\r\nhttps://wiki.php.net/internals/windows/stepbystepbuild_sdk_2");
 	}
 }
 

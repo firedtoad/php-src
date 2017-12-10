@@ -58,7 +58,7 @@ int transliterator_object_construct( zval *object,
 	ZVAL_NEW_STR(&tmp, u8str);
 	zend_update_property(Transliterator_ce_ptr, object,
 		"id", sizeof( "id" ) - 1, &tmp );
-	GC_REFCOUNT(u8str)--;
+	GC_DELREF(u8str);
 	return SUCCESS;
 }
 /* }}} */
@@ -109,12 +109,11 @@ static void Transliterator_objects_free( zend_object *object )
 /* }}} */
 
 /* {{{ Transliterator_object_create */
-static zend_object *Transliterator_object_create(
-	zend_class_entry *ce )
+static zend_object *Transliterator_object_create( zend_class_entry *ce )
 {
 	Transliterator_object* intern;
 
-	intern = ecalloc( 1, sizeof( Transliterator_object ) + zend_object_properties_size(ce));
+	intern = zend_object_alloc(sizeof(Transliterator_object), ce);
 
 	zend_object_std_init( &intern->zo, ce );
     object_properties_init( &intern->zo, ce );
@@ -195,9 +194,8 @@ err:
 	zval tmp_member;							\
 	if( Z_TYPE_P( member ) != IS_STRING )		\
 	{											\
-		tmp_member = *member;					\
-		zval_copy_ctor( &tmp_member );			\
-		convert_to_string( &tmp_member );		\
+		ZVAL_STR(&tmp_member,					\
+			zval_get_string_func(member));		\
 		member = &tmp_member;					\
 		cache_slot = NULL;						\
     }

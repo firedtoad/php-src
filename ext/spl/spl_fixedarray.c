@@ -167,9 +167,7 @@ static HashTable* spl_fixedarray_object_get_properties(zval *obj) /* {{{{ */
 		for (i = 0; i < intern->array.size; i++) {
 			if (!Z_ISUNDEF(intern->array.elements[i])) {
 				zend_hash_index_update(ht, i, &intern->array.elements[i]);
-				if (Z_REFCOUNTED(intern->array.elements[i])){
-					Z_ADDREF(intern->array.elements[i]);
-				}
+				Z_TRY_ADDREF(intern->array.elements[i]);
 			} else {
 				zend_hash_index_update(ht, i, &EG(uninitialized_zval));
 			}
@@ -212,7 +210,7 @@ static zend_object *spl_fixedarray_object_new_ex(zend_class_entry *class_type, z
 	zend_class_entry     *parent = class_type;
 	int                   inherited = 0;
 
-	intern = ecalloc(1, sizeof(spl_fixedarray_object) + zend_object_properties_size(parent));
+	intern = zend_object_alloc(sizeof(spl_fixedarray_object), parent);
 
 	zend_object_std_init(&intern->std, class_type);
 	object_properties_init(&intern->std, class_type);
@@ -345,6 +343,21 @@ static zval *spl_fixedarray_object_read_dimension(zval *object, zval *offset, in
 	spl_fixedarray_object *intern;
 
 	intern = Z_SPLFIXEDARRAY_P(object);
+
+	if (type == BP_VAR_IS && intern->fptr_offset_has) {
+		SEPARATE_ARG_IF_REF(offset);
+		zend_call_method_with_1_params(object, intern->std.ce, &intern->fptr_offset_has, "offsetexists", rv, offset); 
+		if (UNEXPECTED(Z_ISUNDEF_P(rv))) {
+			zval_ptr_dtor(offset);
+			return NULL;
+		}
+		if (!i_zend_is_true(rv)) {
+			zval_ptr_dtor(offset);
+			zval_ptr_dtor(rv);
+			return &EG(uninitialized_zval);
+		}
+		zval_ptr_dtor(rv);
+	}
 
 	if (intern->fptr_offset_get) {
 		zval tmp;
@@ -580,10 +593,7 @@ SPL_METHOD(SplFixedArray, __wakeup)
 		spl_fixedarray_init(&intern->array, size);
 
 		ZEND_HASH_FOREACH_VAL(intern_ht, data) {
-			if (Z_REFCOUNTED_P(data)) {
-				Z_ADDREF_P(data);
-			}
-			ZVAL_COPY_VALUE(&intern->array.elements[index], data);
+			ZVAL_COPY(&intern->array.elements[index], data);
 			index++;
 		} ZEND_HASH_FOREACH_END();
 
@@ -622,19 +632,20 @@ SPL_METHOD(SplFixedArray, toArray)
 
 	intern = Z_SPLFIXEDARRAY_P(getThis());
 
-	array_init(return_value);
 	if (intern->array.size > 0) {
 		int i = 0;
+
+		array_init(return_value);
 		for (; i < intern->array.size; i++) {
 			if (!Z_ISUNDEF(intern->array.elements[i])) {
 				zend_hash_index_update(Z_ARRVAL_P(return_value), i, &intern->array.elements[i]);
-				if (Z_REFCOUNTED(intern->array.elements[i])) {
-					Z_ADDREF(intern->array.elements[i]);
-				}
+				Z_TRY_ADDREF(intern->array.elements[i]);
 			} else {
 				zend_hash_index_update(Z_ARRVAL_P(return_value), i, &EG(uninitialized_zval));
 			}
 		}
+	} else {
+		ZVAL_EMPTY_ARRAY(return_value);
 	}
 }
 /* }}} */

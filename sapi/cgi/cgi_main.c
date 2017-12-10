@@ -96,6 +96,10 @@ int __riscosify_control = __RISCOSIFY_STRICT_UNIX_SPECS;
 # include "openssl/applink.c"
 #endif
 
+#ifdef HAVE_VALGRIND
+# include "valgrind/callgrind.h"
+#endif
+
 #ifndef PHP_WIN32
 /* XXX this will need to change later when threaded fastcgi is implemented.  shane */
 struct sigaction act, old_term, old_quit, old_int;
@@ -530,9 +534,47 @@ static size_t sapi_fcgi_read_post(char *buffer, size_t count_bytes)
 	return read_bytes;
 }
 
+#ifdef PHP_WIN32
+/* The result needs to be freed! See sapi_getenv(). */
+static char *cgi_getenv_win32(const char *name, size_t name_len)
+{
+	char *ret = NULL;
+	wchar_t *keyw, *valw;
+	size_t size;
+	int rc;
+
+	keyw = php_win32_cp_conv_any_to_w(name, name_len, PHP_WIN32_CP_IGNORE_LEN_P);
+	if (!keyw) {
+		return NULL;
+	}
+
+	rc = _wgetenv_s(&size, NULL, 0, keyw);
+	if (rc || 0 == size) {
+		free(keyw);
+		return NULL;
+	}
+
+	valw = emalloc((size + 1) * sizeof(wchar_t));
+
+	rc = _wgetenv_s(&size, valw, size, keyw);
+	if (!rc) {
+		ret = php_win32_cp_w_to_any(valw);
+	}
+
+	free(keyw);
+	efree(valw);
+
+	return ret;
+}
+#endif
+
 static char *sapi_cgi_getenv(char *name, size_t name_len)
 {
+#ifndef PHP_WIN32
 	return getenv(name);
+#else
+	return cgi_getenv_win32(name, name_len);
+#endif
 }
 
 static char *sapi_fcgi_getenv(char *name, size_t name_len)
@@ -547,7 +589,11 @@ static char *sapi_fcgi_getenv(char *name, size_t name_len)
 	if (ret) return ret;
 	/*  if cgi, or fastcgi and not found in fcgi env
 		check the regular environment */
+#ifndef PHP_WIN32
 	return getenv(name);
+#else
+	return cgi_getenv_win32(name, name_len);
+#endif
 }
 
 static char *_sapi_cgi_putenv(char *name, size_t name_len, char *value)
@@ -620,19 +666,14 @@ static void cgi_php_load_env_var(char *var, unsigned int var_len, char *val, uns
 
 static void cgi_php_import_environment_variables(zval *array_ptr)
 {
+	if (Z_TYPE(PG(http_globals)[TRACK_VARS_ENV]) != IS_ARRAY) {
+		zend_is_auto_global_str("_ENV", sizeof("_ENV")-1);
+	}
+
 	if (Z_TYPE(PG(http_globals)[TRACK_VARS_ENV]) == IS_ARRAY &&
-		Z_ARR_P(array_ptr) != Z_ARR(PG(http_globals)[TRACK_VARS_ENV]) &&
-		zend_hash_num_elements(Z_ARRVAL(PG(http_globals)[TRACK_VARS_ENV])) > 0
-	) {
-		zval_dtor(array_ptr);
-		ZVAL_DUP(array_ptr, &PG(http_globals)[TRACK_VARS_ENV]);
-		return;
-	} else if (Z_TYPE(PG(http_globals)[TRACK_VARS_SERVER]) == IS_ARRAY &&
-		Z_ARR_P(array_ptr) != Z_ARR(PG(http_globals)[TRACK_VARS_SERVER]) &&
-		zend_hash_num_elements(Z_ARRVAL(PG(http_globals)[TRACK_VARS_SERVER])) > 0
-	) {
-		zval_dtor(array_ptr);
-		ZVAL_DUP(array_ptr, &PG(http_globals)[TRACK_VARS_SERVER]);
+		Z_ARR_P(array_ptr) != Z_ARR(PG(http_globals)[TRACK_VARS_ENV])) {
+		zend_array_destroy(Z_ARR_P(array_ptr));
+		Z_ARR_P(array_ptr) = zend_array_dup(Z_ARR(PG(http_globals)[TRACK_VARS_ENV]));
 		return;
 	}
 
@@ -1979,6 +2020,11 @@ consult the installation file that came with this distribution, or visit \n\
 		}
 		fastcgi = fcgi_is_fastcgi();
 	}
+
+	/* make php call us to get _ENV vars */
+	php_php_import_environment_variables = php_import_environment_variables;
+	php_import_environment_variables = cgi_php_import_environment_variables;
+
 	if (fastcgi) {
 		/* How many times to run PHP scripts before dying */
 		if (getenv("PHP_FCGI_MAX_REQUESTS")) {
@@ -1988,10 +2034,6 @@ consult the installation file that came with this distribution, or visit \n\
 				return FAILURE;
 			}
 		}
-
-		/* make php call us to get _ENV vars */
-		php_php_import_environment_variables = php_import_environment_variables;
-		php_import_environment_variables = cgi_php_import_environment_variables;
 
 		/* library is already initialized, now init our request */
 		request = fcgi_init_request(fcgi_fd, NULL, NULL, NULL);
@@ -2246,6 +2288,11 @@ consult the installation file that came with this distribution, or visit \n\
 						if (comma) {
 							warmup_repeats = atoi(php_optarg);
 							repeats = atoi(comma + 1);
+#ifdef HAVE_VALGRIND
+							if (warmup_repeats > 0) {
+								CALLGRIND_STOP_INSTRUMENTATION;
+							}
+#endif
 						} else {
 							repeats = atoi(php_optarg);
 						}
@@ -2667,6 +2714,9 @@ fastcgi_request_done:
 							gettimeofday(&start, NULL);
 #else
 							time(&start);
+#endif
+#ifdef HAVE_VALGRIND
+							CALLGRIND_START_INSTRUMENTATION;
 #endif
 						}
 						continue;

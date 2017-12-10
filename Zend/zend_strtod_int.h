@@ -72,6 +72,10 @@ typedef unsigned long int uint32_t;
 #define NO_INFNAN_CHECK
 #endif
 
+#ifndef NO_ERRNO
+#define NO_ERRNO
+#endif
+
 #ifdef WORDS_BIGENDIAN
 #define IEEE_BIG_ENDIAN 1
 #else
@@ -142,3 +146,12 @@ typedef unsigned long int uint32_t;
 
 #endif /* ZEND_STRTOD_INT_H */
 
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
+ */

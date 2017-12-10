@@ -80,12 +80,12 @@ static const unsigned char tolower_map[256] = {
 		zend_binary_strncasecmp
  */
 
-ZEND_API int ZEND_FASTCALL zend_atoi(const char *str, int str_len) /* {{{ */
+ZEND_API int ZEND_FASTCALL zend_atoi(const char *str, size_t str_len) /* {{{ */
 {
 	int retval;
 
 	if (!str_len) {
-		str_len = (int)strlen(str);
+		str_len = strlen(str);
 	}
 	retval = ZEND_STRTOL(str, NULL, 0);
 	if (str_len>0) {
@@ -108,12 +108,12 @@ ZEND_API int ZEND_FASTCALL zend_atoi(const char *str, int str_len) /* {{{ */
 }
 /* }}} */
 
-ZEND_API zend_long ZEND_FASTCALL zend_atol(const char *str, int str_len) /* {{{ */
+ZEND_API zend_long ZEND_FASTCALL zend_atol(const char *str, size_t str_len) /* {{{ */
 {
 	zend_long retval;
 
 	if (!str_len) {
-		str_len = (int)strlen(str);
+		str_len = strlen(str);
 	}
 	retval = ZEND_STRTOL(str, NULL, 0);
 	if (str_len>0) {
@@ -225,8 +225,10 @@ ZEND_API void ZEND_FASTCALL convert_scalar_to_number(zval *op) /* {{{ */
 					if (Z_TYPE(holder) == IS_LONG) {				\
 						if (op == result) {							\
 							zval_ptr_dtor(op);						\
+							ZVAL_LONG(op, Z_LVAL(holder));			\
+						} else {									\
+							(op) = &(holder);						\
 						}											\
-						(op) = &(holder);							\
 					}												\
 					break;											\
 			}														\
@@ -506,7 +508,7 @@ ZEND_API void ZEND_FASTCALL _convert_to_cstring(zval *op ZEND_FILE_LINE_DC) /* {
 		zend_string *str;
 		double dval = Z_DVAL_P(op);
 
-		str = zend_strpprintf(0, "%.*H", (int) EG(precision), dval);
+		str = zend_strpprintf_unchecked(0, "%.*H", (int) EG(precision), dval);
 		ZVAL_NEW_STR(op, str);
 	} else {
 		_convert_to_string(op ZEND_FILE_LINE_CC);
@@ -537,7 +539,7 @@ try_again:
 			break;
 		}
 		case IS_LONG: {
-			ZVAL_NEW_STR(op, zend_long_to_str(Z_LVAL_P(op)));
+			ZVAL_STR(op, zend_long_to_str(Z_LVAL_P(op)));
 			break;
 		}
 		case IS_DOUBLE: {
@@ -581,8 +583,7 @@ static void convert_scalar_to_array(zval *op) /* {{{ */
 
 	ZVAL_COPY_VALUE(&entry, op);
 
-	ZVAL_NEW_ARR(op);
-	zend_hash_init(Z_ARRVAL_P(op), 8, NULL, ZVAL_PTR_DTOR, 0);
+	array_init_size(op, 1);
 	zend_hash_index_add_new(Z_ARRVAL_P(op), 0, &entry);
 }
 /* }}} */
@@ -606,7 +607,7 @@ try_again:
 						/* fast copy */
 						if (!Z_OBJCE_P(op)->default_properties_count &&
 							obj_ht == Z_OBJ_P(op)->properties &&
-							!ZEND_HASH_GET_APPLY_COUNT(Z_OBJ_P(op)->properties) &&
+							!GC_IS_RECURSIVE(obj_ht) &&
 							EXPECTED(Z_OBJ_P(op)->handlers == &std_object_handlers)) {
 							arr = zend_proptable_to_symtable(obj_ht, 0);
 						} else {
@@ -628,12 +629,13 @@ try_again:
 				}
 
 				zval_dtor(op);
+				/*ZVAL_EMPTY_ARRAY(op);*/
 				array_init(op);
 			}
 			break;
 		case IS_NULL:
-			ZVAL_NEW_ARR(op);
-			zend_hash_init(Z_ARRVAL_P(op), 8, NULL, ZVAL_PTR_DTOR, 0);
+			/*ZVAL_EMPTY_ARRAY(op);*/
+			array_init(op);
 			break;
 		case IS_REFERENCE:
 			zend_unwrap_reference(op);
@@ -786,7 +788,7 @@ try_again:
 }
 /* }}} */
 
-ZEND_API zend_long ZEND_FASTCALL _zval_get_long_func(zval *op) /* {{{ */
+ZEND_API zend_long ZEND_FASTCALL zval_get_long_func(zval *op) /* {{{ */
 {
 	return _zval_get_long_func_ex(op, 1);
 }
@@ -798,7 +800,7 @@ static zend_long ZEND_FASTCALL _zval_get_long_func_noisy(zval *op) /* {{{ */
 }
 /* }}} */
 
-ZEND_API double ZEND_FASTCALL _zval_get_double_func(zval *op) /* {{{ */
+ZEND_API double ZEND_FASTCALL zval_get_double_func(zval *op) /* {{{ */
 {
 try_again:
 	switch (Z_TYPE_P(op)) {
@@ -837,7 +839,7 @@ try_again:
 }
 /* }}} */
 
-ZEND_API zend_string* ZEND_FASTCALL _zval_get_string_func(zval *op) /* {{{ */
+ZEND_API zend_string* ZEND_FASTCALL zval_get_string_func(zval *op) /* {{{ */
 {
 try_again:
 	switch (Z_TYPE_P(op)) {
@@ -920,7 +922,9 @@ ZEND_API int ZEND_FASTCALL add_function(zval *result, zval *op1, zval *op2) /* {
 					return SUCCESS;
 				}
 				if (result != op1) {
-					ZVAL_DUP(result, op1);
+					ZVAL_ARR(result, zend_array_dup(Z_ARR_P(op1)));
+				} else {
+					SEPARATE_ARRAY(result);
 				}
 				zend_hash_merge(Z_ARRVAL_P(result), Z_ARRVAL_P(op2), zval_add_ref, 0);
 				return SUCCESS;
@@ -1742,7 +1746,18 @@ ZEND_API int ZEND_FASTCALL concat_function(zval *result, zval *op1, zval *op2) /
 		}
 	} while (0);
 
-	{
+	if (UNEXPECTED(Z_STRLEN_P(op1) == 0)) {
+		if (EXPECTED(result != op2)) {
+			if (result == orig_op1) {
+				zval_dtor(orig_op1);
+			}
+			ZVAL_COPY(result, op2);
+		}
+	} else if (UNEXPECTED(Z_STRLEN_P(op2) == 0)) {
+		if (EXPECTED(result != op1)) {
+			ZVAL_COPY(result, op1);
+		}
+	} else {
 		size_t op1_len = Z_STRLEN_P(op1);
 		size_t op2_len = Z_STRLEN_P(op2);
 		size_t result_len = op1_len + op2_len;
@@ -1794,8 +1809,9 @@ ZEND_API int ZEND_FASTCALL concat_function(zval *result, zval *op1, zval *op2) /
 
 ZEND_API int ZEND_FASTCALL string_compare_function_ex(zval *op1, zval *op2, zend_bool case_insensitive) /* {{{ */
 {
-	zend_string *str1 = zval_get_string(op1);
-	zend_string *str2 = zval_get_string(op2);
+	zend_string *tmp_str1, *tmp_str2;
+	zend_string *str1 = zval_get_tmp_string(op1, &tmp_str1);
+	zend_string *str2 = zval_get_tmp_string(op2, &tmp_str2);
 	int ret;
 
 	if (case_insensitive) {
@@ -1804,8 +1820,8 @@ ZEND_API int ZEND_FASTCALL string_compare_function_ex(zval *op1, zval *op2, zend
 		ret = zend_binary_strcmp(ZSTR_VAL(str1), ZSTR_LEN(str1), ZSTR_VAL(str2), ZSTR_LEN(str2));
 	}
 
-	zend_string_release(str1);
-	zend_string_release(str2);
+	zend_tmp_string_release(tmp_str1);
+	zend_tmp_string_release(tmp_str2);
 	return ret;
 }
 /* }}} */
@@ -1820,12 +1836,13 @@ ZEND_API int ZEND_FASTCALL string_compare_function(zval *op1, zval *op2) /* {{{ 
 			return zend_binary_strcmp(Z_STRVAL_P(op1), Z_STRLEN_P(op1), Z_STRVAL_P(op2), Z_STRLEN_P(op2));
 		}
 	} else {
-		zend_string *str1 = zval_get_string(op1);
-		zend_string *str2 = zval_get_string(op2);
+		zend_string *tmp_str1, *tmp_str2;
+		zend_string *str1 = zval_get_tmp_string(op1, &tmp_str1);
+		zend_string *str2 = zval_get_tmp_string(op2, &tmp_str2);
 		int ret = zend_binary_strcmp(ZSTR_VAL(str1), ZSTR_LEN(str1), ZSTR_VAL(str2), ZSTR_LEN(str2));
 
-		zend_string_release(str1);
-		zend_string_release(str2);
+		zend_tmp_string_release(tmp_str1);
+		zend_tmp_string_release(tmp_str2);
 		return ret;
 	}
 }
@@ -1841,12 +1858,13 @@ ZEND_API int ZEND_FASTCALL string_case_compare_function(zval *op1, zval *op2) /*
 			return zend_binary_strcasecmp_l(Z_STRVAL_P(op1), Z_STRLEN_P(op1), Z_STRVAL_P(op2), Z_STRLEN_P(op2));
 		}
 	} else {
-		zend_string *str1 = zval_get_string(op1);
-		zend_string *str2 = zval_get_string(op2);
+		zend_string *tmp_str1, *tmp_str2;
+		zend_string *str1 = zval_get_tmp_string(op1, &tmp_str1);
+		zend_string *str2 = zval_get_tmp_string(op2, &tmp_str2);
 		int ret = zend_binary_strcasecmp_l(ZSTR_VAL(str1), ZSTR_LEN(str1), ZSTR_VAL(str2), ZSTR_LEN(str1));
 
-		zend_string_release(str1);
-		zend_string_release(str2);
+		zend_tmp_string_release(tmp_str1);
+		zend_tmp_string_release(tmp_str2);
 		return ret;
 	}
 }
@@ -1855,12 +1873,13 @@ ZEND_API int ZEND_FASTCALL string_case_compare_function(zval *op1, zval *op2) /*
 #if HAVE_STRCOLL
 ZEND_API int ZEND_FASTCALL string_locale_compare_function(zval *op1, zval *op2) /* {{{ */
 {
-	zend_string *str1 = zval_get_string(op1);
-	zend_string *str2 = zval_get_string(op2);
+	zend_string *tmp_str1, *tmp_str2;
+	zend_string *str1 = zval_get_tmp_string(op1, &tmp_str1);
+	zend_string *str2 = zval_get_tmp_string(op2, &tmp_str2);
 	int ret = strcoll(ZSTR_VAL(str1), ZSTR_VAL(str2));
 
-	zend_string_release(str1);
-	zend_string_release(str2);
+	zend_tmp_string_release(tmp_str1);
+	zend_tmp_string_release(tmp_str2);
 	return ret;
 }
 /* }}} */
@@ -2124,9 +2143,7 @@ ZEND_API int ZEND_FASTCALL zend_is_identical(zval *op1, zval *op2) /* {{{ */
 		case IS_DOUBLE:
 			return (Z_DVAL_P(op1) == Z_DVAL_P(op2));
 		case IS_STRING:
-			return (Z_STR_P(op1) == Z_STR_P(op2) ||
-				(Z_STRLEN_P(op1) == Z_STRLEN_P(op2) &&
-				 memcmp(Z_STRVAL_P(op1), Z_STRVAL_P(op2), Z_STRLEN_P(op1)) == 0));
+			return zend_string_equals(Z_STR_P(op1), Z_STR_P(op2));
 		case IS_ARRAY:
 			return (Z_ARRVAL_P(op1) == Z_ARRVAL_P(op2) ||
 				zend_hash_compare(Z_ARRVAL_P(op1), Z_ARRVAL_P(op2), (compare_func_t) hash_zval_identical_function, 1) == 0);
@@ -2587,14 +2604,14 @@ ZEND_API char* ZEND_FASTCALL zend_str_tolower_dup_ex(const char *source, size_t 
 }
 /* }}} */
 
-ZEND_API zend_string* ZEND_FASTCALL zend_string_tolower(zend_string *str) /* {{{ */
+ZEND_API zend_string* ZEND_FASTCALL zend_string_tolower_ex(zend_string *str, int persistent) /* {{{ */
 {
 	register unsigned char *p = (unsigned char*)ZSTR_VAL(str);
 	register unsigned char *end = p + ZSTR_LEN(str);
 
 	while (p < end) {
 		if (*p != zend_tolower_ascii(*p)) {
-			zend_string *res = zend_string_alloc(ZSTR_LEN(str), 0);
+			zend_string *res = zend_string_alloc(ZSTR_LEN(str), persistent);
 			register unsigned char *r;
 
 			if (p != (unsigned char*)ZSTR_VAL(str)) {
@@ -2757,7 +2774,7 @@ ZEND_API int ZEND_FASTCALL zend_binary_zval_strncasecmp(zval *s1, zval *s2, zval
 }
 /* }}} */
 
-ZEND_API zend_long ZEND_FASTCALL zendi_smart_strcmp(zend_string *s1, zend_string *s2) /* {{{ */
+ZEND_API int ZEND_FASTCALL zendi_smart_strcmp(zend_string *s1, zend_string *s2) /* {{{ */
 {
 	int ret1, ret2;
 	int oflow1, oflow2;
@@ -2856,9 +2873,13 @@ ZEND_API void ZEND_FASTCALL zend_locale_sprintf_double(zval *op ZEND_FILE_LINE_D
 
 ZEND_API zend_string* ZEND_FASTCALL zend_long_to_str(zend_long num) /* {{{ */
 {
-	char buf[MAX_LENGTH_OF_LONG + 1];
-	char *res = zend_print_long_to_buf(buf + sizeof(buf) - 1, num);
-	return zend_string_init(res, buf + sizeof(buf) - 1 - res, 0);
+	if ((zend_ulong)num <= 9) {
+		return ZSTR_CHAR((zend_uchar)'0' + (zend_uchar)num);
+	} else {
+		char buf[MAX_LENGTH_OF_LONG + 1];
+		char *res = zend_print_long_to_buf(buf + sizeof(buf) - 1, num);
+		return zend_string_init(res, buf + sizeof(buf) - 1 - res, 0);
+	}
 }
 /* }}} */
 
@@ -3026,7 +3047,7 @@ ZEND_API const char* ZEND_FASTCALL zend_memnstr_ex(const char *haystack, const c
 	register size_t i;
 	register const char *p;
 
-	if (needle_len == 0 || (end - haystack) == 0) {
+	if (needle_len == 0 || (end - haystack) < needle_len) {
 		return NULL;
 	}
 
@@ -3060,7 +3081,7 @@ ZEND_API const char* ZEND_FASTCALL zend_memnrstr_ex(const char *haystack, const 
 	register size_t i;
 	register const char *p;
 
-	if (needle_len == 0 || (end - haystack) == 0) {
+	if (needle_len == 0 || (end - haystack) < needle_len) {
 		return NULL;
 	}
 
@@ -3129,4 +3150,6 @@ ZEND_API zend_long ZEND_FASTCALL zend_dval_to_lval_slow(double d)
  * c-basic-offset: 4
  * indent-tabs-mode: t
  * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

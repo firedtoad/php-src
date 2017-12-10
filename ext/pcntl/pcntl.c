@@ -622,7 +622,7 @@ PHP_FUNCTION(pcntl_alarm)
 
 #define PHP_RUSAGE_PARA(from, to, field) \
 	add_assoc_long(to, #field, from.field)
-#if !defined(_OSD_POSIX) && !defined(__BEOS__) /* BS2000 has only a few fields in the rusage struct */
+#ifndef _OSD_POSIX
 	#define PHP_RUSAGE_SPECIAL(from, to) \
 		PHP_RUSAGE_PARA(from, to, ru_oublock); \
 		PHP_RUSAGE_PARA(from, to, ru_inblock); \
@@ -990,7 +990,6 @@ PHP_FUNCTION(pcntl_exec)
 PHP_FUNCTION(pcntl_signal)
 {
 	zval *handle;
-	zend_string *func_name;
 	zend_long signo;
 	zend_bool restart_syscalls = 1;
 
@@ -1031,17 +1030,17 @@ PHP_FUNCTION(pcntl_signal)
 		RETURN_TRUE;
 	}
 
-	if (!zend_is_callable(handle, 0, &func_name)) {
+	if (!zend_is_callable(handle, 0, NULL)) {
+		zend_string *func_name = zend_get_callable_name(handle);
 		PCNTL_G(last_error) = EINVAL;
 		php_error_docref(NULL, E_WARNING, "%s is not a callable function name error", ZSTR_VAL(func_name));
 		zend_string_release(func_name);
 		RETURN_FALSE;
 	}
-	zend_string_release(func_name);
 
 	/* Add the function name to our signal table */
 	if (zend_hash_index_update(&PCNTL_G(php_signal_table), signo, handle)) {
-		if (Z_REFCOUNTED_P(handle)) Z_ADDREF_P(handle);
+		Z_TRY_ADDREF_P(handle);
 	}
 
 	if (php_signal4(signo, pcntl_signal_handler, (int) restart_syscalls, 1) == (Sigfunc *)SIG_ERR) {

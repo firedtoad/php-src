@@ -45,7 +45,7 @@ static zend_always_inline void i_zval_ptr_dtor(zval *zval_ptr ZEND_FILE_LINE_DC)
 {
 	if (Z_REFCOUNTED_P(zval_ptr)) {
 		zend_refcounted *ref = Z_COUNTED_P(zval_ptr);
-		if (!--GC_REFCOUNT(ref)) {
+		if (!GC_DELREF(ref)) {
 			_zval_dtor_func(ref ZEND_FILE_LINE_RELAY_CC);
 		} else {
 			gc_check_possible_root(ref);
@@ -121,4 +121,6 @@ END_EXTERN_C()
  * c-basic-offset: 4
  * indent-tabs-mode: t
  * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

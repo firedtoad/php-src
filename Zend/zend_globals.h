@@ -155,6 +155,7 @@ struct _zend_executor_globals {
 	zval          *vm_stack_top;
 	zval          *vm_stack_end;
 	zend_vm_stack  vm_stack;
+	size_t         vm_stack_page_size;
 
 	struct _zend_execute_data *current_execute_data;
 	zend_class_entry *fake_scope; /* used to avoid checks accessing properties */
@@ -208,7 +209,6 @@ struct _zend_executor_globals {
 	struct _zend_module_entry *current_module;
 
 	zend_bool active;
-	zend_bool valid_symbol_table;
 	zend_uchar flags;
 
 	zend_long assertions;
@@ -303,4 +303,6 @@ struct _zend_php_scanner_globals {
  * c-basic-offset: 4
  * indent-tabs-mode: t
  * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */
