@@ -6,7 +6,7 @@ Test date_sun_info() function : error variations - Pass unexpected values for ti
  * Description:  Returns an array with information about sunset/sunrise and twilight begin/end.
  * Source code: ext/standard/data/php_date.c
  */
- 
+
 date_default_timezone_set("UTC");
 
 echo "*** Testing date_sun_info() : usage variations ***\n";
@@ -47,7 +47,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -57,7 +57,7 @@ $inputs = array(
 /*19*/ "abcxyz",
        'abcxyz',
        $heredoc,
-       
+
        // undefined data
 /*22*/ @$undefined_var,
 
@@ -413,32 +413,32 @@ array(9) {
 
 -- Iteration 16 --
 
-Warning: date_sun_info() expects parameter 1 to be integer, string given in %s on line %d
+Warning: date_sun_info() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 -- Iteration 17 --
 
-Warning: date_sun_info() expects parameter 1 to be integer, string given in %s on line %d
+Warning: date_sun_info() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 -- Iteration 18 --
 
-Warning: date_sun_info() expects parameter 1 to be integer, array given in %s on line %d
+Warning: date_sun_info() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
 -- Iteration 19 --
 
-Warning: date_sun_info() expects parameter 1 to be integer, string given in %s on line %d
+Warning: date_sun_info() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 -- Iteration 20 --
 
-Warning: date_sun_info() expects parameter 1 to be integer, string given in %s on line %d
+Warning: date_sun_info() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 -- Iteration 21 --
 
-Warning: date_sun_info() expects parameter 1 to be integer, string given in %s on line %d
+Warning: date_sun_info() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 -- Iteration 22 --
@@ -487,6 +487,6 @@ array(9) {
 
 -- Iteration 24 --
 
-Warning: date_sun_info() expects parameter 1 to be integer, resource given in %s on line %d
+Warning: date_sun_info() expects parameter 1 to be int, resource given in %s on line %d
 bool(false)
 ===Done===

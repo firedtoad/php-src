@@ -44,11 +44,11 @@ var_dump($c['a']->isCompressed(Phar::BZ2));
 ?>
 ===DONE===
 --CLEAN--
-<?php 
+<?php
 unlink(dirname(__FILE__) . '/' . basename(__FILE__, '.clean.php') . '.phar.zip.php');
 unlink(dirname(__FILE__) . '/' . basename(__FILE__, '.clean.php') . '.phar.zip');
 ?>
---EXPECTF--
+--EXPECT--
 string(1) "a"
 bool(false)
 string(1) "b"

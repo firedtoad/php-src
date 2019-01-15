@@ -41,12 +41,11 @@ include $alias . '/b/c.php';
 --CLEAN--
 <?php unlink(dirname(__FILE__) . '/' . basename(__FILE__, '.clean.php') . '.phar.tar'); ?>
 --EXPECTF--
-
 Warning: fopen(phar://%sopen_for_write_existing_c.phar.tar/b/c.php): failed to open stream: phar error: write operations disabled by the php.ini setting phar.readonly in %sopen_for_write_existing_c.php on line %d
 
-Warning: fwrite() expects parameter 1 to be resource, boolean given in %spen_for_write_existing_c.php on line %d
+Warning: fwrite() expects parameter 1 to be resource, bool given in %spen_for_write_existing_c.php on line %d
 
-Warning: fclose() expects parameter 1 to be resource, boolean given in %spen_for_write_existing_c.php on line %d
+Warning: fclose() expects parameter 1 to be resource, bool given in %spen_for_write_existing_c.php on line %d
 This is b/c
 
 ===DONE===

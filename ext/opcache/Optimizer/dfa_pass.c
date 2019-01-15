@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend OPcache                                                         |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2017 The PHP Group                                |
+   | Copyright (c) 1998-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Dmitry Stogov <dmitry@zend.com>                             |
+   | Authors: Dmitry Stogov <dmitry@php.net>                              |
    +----------------------------------------------------------------------+
 */
 
@@ -110,7 +110,7 @@ int zend_dfa_analyze_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx, 
 		return FAILURE;
 	}
 
-	if (zend_ssa_inference(&ctx->arena, op_array, ctx->script, ssa) != SUCCESS) {
+	if (zend_ssa_inference(&ctx->arena, op_array, ctx->script, ssa, ctx->optimization_level) != SUCCESS) {
 		return FAILURE;
 	}
 
@@ -125,7 +125,7 @@ int zend_dfa_analyze_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx, 
 	return SUCCESS;
 }
 
-static void zend_ssa_remove_nops(zend_op_array *op_array, zend_ssa *ssa)
+static void zend_ssa_remove_nops(zend_op_array *op_array, zend_ssa *ssa, zend_optimizer_ctx *ctx)
 {
 	zend_basic_block *blocks = ssa->cfg.blocks;
 	zend_basic_block *end = blocks + ssa->cfg.blocks_count;
@@ -161,7 +161,7 @@ static void zend_ssa_remove_nops(zend_op_array *op_array, zend_ssa *ssa)
 					shiftlist[i] = i - target;
 					i++;
 				}
-				
+
 				if (b->flags & ZEND_BB_UNREACHABLE_FREE) {
 					/* Only keep the FREE for the loop var */
 					ZEND_ASSERT(op_array->opcodes[b->start].opcode == ZEND_FREE
@@ -174,12 +174,13 @@ static void zend_ssa_remove_nops(zend_op_array *op_array, zend_ssa *ssa)
 				while (i < end) {
 					shiftlist[i] = i - target;
 					if (EXPECTED(op_array->opcodes[i].opcode != ZEND_NOP) ||
-					   /*keep NOP to support ZEND_VM_SMART_BRANCH */
-					   (i > 0 &&
+					   /* Keep NOP to support ZEND_VM_SMART_BRANCH. Using "target-1" instead of
+					    * "i-1" here to check the last non-NOP instruction. */
+					   (target > 0 &&
 					    i + 1 < op_array->last &&
 					    (op_array->opcodes[i+1].opcode == ZEND_JMPZ ||
 					     op_array->opcodes[i+1].opcode == ZEND_JMPNZ) &&
-					    zend_is_smart_branch(op_array->opcodes + i - 1))) {
+					    zend_is_smart_branch(op_array->opcodes + target - 1))) {
 						if (i != target) {
 							op_array->opcodes[target] = op_array->opcodes[i];
 							ssa->ops[target] = ssa->ops[i];
@@ -263,9 +264,10 @@ static void zend_ssa_remove_nops(zend_op_array *op_array, zend_ssa *ssa)
 		}
 
 		/* update early binding list */
-		if (op_array->early_binding != (uint32_t)-1) {
-			uint32_t *opline_num = &op_array->early_binding;
+		if (op_array->fn_flags & ZEND_ACC_EARLY_BINDING) {
+			uint32_t *opline_num = &ctx->script->first_early_binding_opline;
 
+			ZEND_ASSERT(op_array == &ctx->script->main_op_array);
 			do {
 				*opline_num -= shiftlist[*opline_num];
 				opline_num = &op_array->opcodes[*opline_num].result.opline_num;
@@ -508,13 +510,54 @@ static void compress_block(zend_op_array *op_array, zend_basic_block *block)
 	}
 }
 
+static void replace_predecessor(zend_ssa *ssa, int block_id, int old_pred, int new_pred) {
+	zend_basic_block *block = &ssa->cfg.blocks[block_id];
+	int *predecessors = &ssa->cfg.predecessors[block->predecessor_offset];
+	zend_ssa_phi *phi;
+
+	int i;
+	int old_pred_idx = -1;
+	int new_pred_idx = -1;
+	for (i = 0; i < block->predecessors_count; i++) {
+		if (predecessors[i] == old_pred) {
+			old_pred_idx = i;
+		}
+		if (predecessors[i] == new_pred) {
+			new_pred_idx = i;
+		}
+	}
+
+	ZEND_ASSERT(old_pred_idx != -1);
+	if (new_pred_idx == -1) {
+		/* If the new predecessor doesn't exist yet, simply rewire the old one */
+		predecessors[old_pred_idx] = new_pred;
+	} else {
+		/* Otherwise, rewiring the old predecessor would make the new predecessor appear
+		 * twice, which violates our CFG invariants. Remove the old predecessor instead. */
+		memmove(
+			predecessors + old_pred_idx,
+			predecessors + old_pred_idx + 1,
+			sizeof(int) * (block->predecessors_count - old_pred_idx - 1)
+		);
+
+		/* Also remove the corresponding phi node entries */
+		for (phi = ssa->blocks[block_id].phis; phi; phi = phi->next) {
+			memmove(
+				phi->sources + old_pred_idx,
+				phi->sources + old_pred_idx + 1,
+				sizeof(int) * (block->predecessors_count - old_pred_idx - 1)
+			);
+		}
+
+		block->predecessors_count--;
+	}
+}
+
 static void zend_ssa_replace_control_link(zend_op_array *op_array, zend_ssa *ssa, int from, int to, int new_to)
 {
 	zend_basic_block *src = &ssa->cfg.blocks[from];
 	zend_basic_block *old = &ssa->cfg.blocks[to];
 	zend_basic_block *dst = &ssa->cfg.blocks[new_to];
-	int *predecessors = &ssa->cfg.predecessors[dst->predecessor_offset];
-	int dup = 0;
 	int i;
 	zend_op *opline;
 
@@ -551,9 +594,9 @@ static void zend_ssa_replace_control_link(zend_op_array *op_array, zend_ssa *ssa
 				}
 				break;
 			case ZEND_CATCH:
-				if (!opline->result.num) {
-					if (ZEND_OFFSET_TO_OPLINE_NUM(op_array, opline, opline->extended_value) == old->start) {
-						opline->extended_value = ZEND_OPLINE_NUM_TO_OFFSET(op_array, opline, dst->start);
+				if (!(opline->extended_value & ZEND_LAST_CATCH)) {
+					if (ZEND_OP2_JMP_ADDR(opline) == op_array->opcodes + old->start) {
+						ZEND_SET_OP_JMP_ADDR(opline, opline->op2, op_array->opcodes + dst->start);
 					}
 				}
 				break;
@@ -583,16 +626,7 @@ static void zend_ssa_replace_control_link(zend_op_array *op_array, zend_ssa *ssa
 		}
 	}
 
-	for (i = 0; i < dst->predecessors_count; i++) {
-		if (dup) {
-			predecessors[i] = predecessors[i+1];
-		} else if (predecessors[i] == to) {
-			predecessors[i] = from;
-		} else if (predecessors[i] == from) {
-			dup = 1;
-			dst->predecessors_count--;
-		}
-	}
+	replace_predecessor(ssa, new_to, to, from);
 }
 
 static void zend_ssa_unlink_block(zend_op_array *op_array, zend_ssa *ssa, zend_basic_block *block, int block_num)
@@ -702,8 +736,7 @@ optimize_jmpnz:
 							take_successor_1(ssa, block_num, block);
 							goto optimize_nop;
 						}
-					} else {
-						ZEND_ASSERT(block->successors_count == 2);
+					} else if (block->successors_count == 2) {
 						if (block->successors[0] == next_block_num) {
 							take_successor_0(ssa, block_num, block);
 							if (opline->op1_type == IS_CV && (OP1_INFO() & MAY_BE_UNDEF)) {
@@ -735,8 +768,7 @@ optimize_jmpnz:
 						opline->extended_value = 0;
 						opline->opcode = ZEND_JMP;
 						goto optimize_jmp;
-					} else {
-						ZEND_ASSERT(block->successors_count == 2);
+					} else if (block->successors_count == 2) {
 						if (block->successors[0] == block->successors[1]) {
 							take_successor_0(ssa, block_num, block);
 							if (block->successors[0] == next_block_num) {
@@ -809,30 +841,30 @@ optimize_jmpnz:
 					}
 					break;
 				case ZEND_COALESCE:
-					if (opline->op1_type == IS_CONST) {
+				{
+					zend_ssa_var *var = &ssa->vars[ssa_op->result_def];
+					if (opline->op1_type == IS_CONST
+							&& var->use_chain < 0 && var->phi_use_chain == NULL) {
 						if (Z_TYPE_P(CT_CONSTANT_EX(op_array, opline->op1.constant)) == IS_NULL) {
+							zend_ssa_remove_result_def(ssa, ssa_op);
 							MAKE_NOP(opline);
 							removed_ops++;
 							take_successor_1(ssa, block_num, block);
 							goto optimize_nop;
 						} else {
-							zend_ssa_var *var = &ssa->vars[ssa_op->result_def];
-							if (var->use_chain < 0 && var->phi_use_chain == NULL) {
-								ssa_op->result_def = -1;
-								if (opline->result_type & (IS_TMP_VAR|IS_VAR)) {
-									zend_optimizer_remove_live_range_ex(op_array, opline->result.var, var->definition);
-								}
-								zend_ssa_unlink_use_chain(ssa, opline - op_array->opcodes, ssa_op->op1_use);
-								ssa_op->op1_use = -1;
-								ssa_op->op1_use_chain = -1;
-								opline->opcode = ZEND_JMP;
-								COPY_NODE(opline->op1, opline->op2);
-								take_successor_0(ssa, block_num, block);
-								goto optimize_jmp;
+							if (opline->result_type & (IS_TMP_VAR|IS_VAR)) {
+								zend_optimizer_remove_live_range_ex(op_array, opline->result.var, var->definition);
 							}
+							opline->opcode = ZEND_JMP;
+							opline->result_type = IS_UNUSED;
+							zend_ssa_remove_result_def(ssa, ssa_op);
+							COPY_NODE(opline->op1, opline->op2);
+							take_successor_0(ssa, block_num, block);
+							goto optimize_jmp;
 						}
 					}
 					break;
+				}
 				case ZEND_NOP:
 optimize_nop:
 					compress_block(op_array, block);
@@ -873,6 +905,10 @@ void zend_dfa_optimize_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx
 		int remove_nops = 0;
 		zend_op *opline;
 		zval tmp;
+
+#if ZEND_DEBUG_DFA
+		ssa_verify_integrity(op_array, ssa, "before dfa");
+#endif
 
 		if (ZEND_OPTIMIZER_PASS_8 & ctx->optimization_level) {
 			if (sccp_optimize_op_array(ctx, op_array, ssa, call_map)) {
@@ -1173,7 +1209,7 @@ void zend_dfa_optimize_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx
 #endif
 
 		if (remove_nops) {
-			zend_ssa_remove_nops(op_array, ssa);
+			zend_ssa_remove_nops(op_array, ssa, ctx);
 #if ZEND_DEBUG_DFA
 			ssa_verify_integrity(op_array, ssa, "after nop");
 #endif

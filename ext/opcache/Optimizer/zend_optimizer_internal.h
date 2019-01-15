@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend OPcache                                                         |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2017 The PHP Group                                |
+   | Copyright (c) 1998-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Andi Gutmans <andi@zend.com>                                |
-   |          Zeev Suraski <zeev@zend.com>                                |
+   | Authors: Andi Gutmans <andi@php.net>                                 |
+   |          Zeev Suraski <zeev@php.net>                                 |
    |          Stanislav Malyshev <stas@zend.com>                          |
-   |          Dmitry Stogov <dmitry@zend.com>                             |
+   |          Dmitry Stogov <dmitry@php.net>                              |
    +----------------------------------------------------------------------+
 */
 
@@ -95,14 +95,14 @@ void zend_optimizer_remove_live_range(zend_op_array *op_array, uint32_t var);
 void zend_optimizer_remove_live_range_ex(zend_op_array *op_array, uint32_t var, uint32_t start);
 void zend_optimizer_pass1(zend_op_array *op_array, zend_optimizer_ctx *ctx);
 void zend_optimizer_pass2(zend_op_array *op_array);
-void zend_optimizer_pass3(zend_op_array *op_array);
+void zend_optimizer_pass3(zend_op_array *op_array, zend_optimizer_ctx *ctx);
 void zend_optimize_func_calls(zend_op_array *op_array, zend_optimizer_ctx *ctx);
 void zend_optimize_cfg(zend_op_array *op_array, zend_optimizer_ctx *ctx);
 void zend_optimize_dfa(zend_op_array *op_array, zend_optimizer_ctx *ctx);
 int  zend_dfa_analyze_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx, zend_ssa *ssa);
 void zend_dfa_optimize_op_array(zend_op_array *op_array, zend_optimizer_ctx *ctx, zend_ssa *ssa, zend_call_info **call_map);
 void zend_optimize_temporary_variables(zend_op_array *op_array, zend_optimizer_ctx *ctx);
-void zend_optimizer_nop_removal(zend_op_array *op_array);
+void zend_optimizer_nop_removal(zend_op_array *op_array, zend_optimizer_ctx *ctx);
 void zend_optimizer_compact_literals(zend_op_array *op_array, zend_optimizer_ctx *ctx);
 void zend_optimizer_compact_vars(zend_op_array *op_array);
 int zend_optimizer_is_disabled_func(const char *name, size_t len);

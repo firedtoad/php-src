@@ -28,11 +28,11 @@ __HALT_COMPILER();
 ?>
 ===DONE===
 --CLEAN--
-<?php 
+<?php
 unlink(dirname(__FILE__) . '/brandnewphar.phar');
 ?>
 --EXPECT--
-int(6651)
+int(6641)
 string(200) "<?php
 function __autoload($class)
 {

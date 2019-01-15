@@ -6,9 +6,9 @@ require_once(dirname(__FILE__).'/skipif.inc');
 ?>
 --FILE--
 <?php
-/* Prototype  : string imap_fetchbody(resource $stream_id, int $msg_no, string $section 
+/* Prototype  : string imap_fetchbody(resource $stream_id, int $msg_no, string $section
  *           [, int $options])
- * Description: Get a specific body section 
+ * Description: Get a specific body section
  * Source code: ext/imap/php_imap.c
  */
 
@@ -66,7 +66,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -76,7 +76,7 @@ $inputs = array(
 /*19*/ "string",
        'string',
        $heredoc,
-       
+
        // object data
 /*22*/ new classA(),
 
@@ -176,37 +176,37 @@ bool(false)
 
 -- Iteration 16 --
 
-Warning: imap_fetchbody() expects parameter 2 to be integer, string given in %s on line %d
+Warning: imap_fetchbody() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 17 --
 
-Warning: imap_fetchbody() expects parameter 2 to be integer, string given in %s on line %d
+Warning: imap_fetchbody() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 18 --
 
-Warning: imap_fetchbody() expects parameter 2 to be integer, array given in %s on line %d
+Warning: imap_fetchbody() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
 -- Iteration 19 --
 
-Warning: imap_fetchbody() expects parameter 2 to be integer, string given in %s on line %d
+Warning: imap_fetchbody() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 20 --
 
-Warning: imap_fetchbody() expects parameter 2 to be integer, string given in %s on line %d
+Warning: imap_fetchbody() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 21 --
 
-Warning: imap_fetchbody() expects parameter 2 to be integer, string given in %s on line %d
+Warning: imap_fetchbody() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 22 --
 
-Warning: imap_fetchbody() expects parameter 2 to be integer, object given in %s on line %d
+Warning: imap_fetchbody() expects parameter 2 to be int, object given in %s on line %d
 NULL
 
 -- Iteration 23 --

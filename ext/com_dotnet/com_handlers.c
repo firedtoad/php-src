@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,8 +15,6 @@
    | Author: Wez Furlong  <wez@thebrainroom.com>                          |
    +----------------------------------------------------------------------+
  */
-
-/* $Id$ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -60,7 +58,7 @@ static zval *com_property_read(zval *object, zval *member, int type, void **cahc
 	return rv;
 }
 
-static void com_property_write(zval *object, zval *member, zval *value, void **cache_slot)
+static zval *com_property_write(zval *object, zval *member, zval *value, void **cache_slot)
 {
 	php_com_dotnet_object *obj;
 	VARIANT v;
@@ -78,6 +76,7 @@ static void com_property_write(zval *object, zval *member, zval *value, void **c
 	} else {
 		php_com_throw_exception(E_INVALIDARG, "this variant has no properties");
 	}
+	return value;
 }
 
 static zval *com_read_dimension(zval *object, zval *offset, int type, zval *rv)
@@ -231,14 +230,14 @@ static HashTable *com_properties_get(zval *object)
 	 * infinite recursion when the hash is displayed via var_dump().
 	 * Perhaps it is best to leave it un-implemented.
 	 */
-	return NULL;
+	return &zend_empty_array;
 }
 
 static void function_dtor(zval *zv)
 {
 	zend_internal_function *f = (zend_internal_function*)Z_PTR_P(zv);
 
-	zend_string_release(f->function_name);
+	zend_string_release_ex(f->function_name, 0);
 	if (f->arg_info) {
 		efree(f->arg_info);
 	}
@@ -255,10 +254,10 @@ static PHP_FUNCTION(com_method_handler)
 			INTERNAL_FUNCTION_PARAM_PASSTHRU);
 }
 
-static union _zend_function *com_method_get(zend_object **object_ptr, zend_string *name, const zval *key)
+static zend_function *com_method_get(zend_object **object_ptr, zend_string *name, const zval *key)
 {
 	zend_internal_function f, *fptr = NULL;
-	union _zend_function *func;
+	zend_function *func;
 	DISPID dummy;
 	php_com_dotnet_object *obj = (php_com_dotnet_object*)*object_ptr;
 
@@ -390,7 +389,7 @@ static int com_call_method(zend_string *method, zend_object *object, INTERNAL_FU
 	return ret;
 }
 
-static union _zend_function *com_constructor_get(zend_object *object)
+static zend_function *com_constructor_get(zend_object *object)
 {
 	php_com_dotnet_object *obj = (php_com_dotnet_object *) object;
 	static zend_internal_function c, d, v;
@@ -403,7 +402,7 @@ static union _zend_function *com_constructor_get(zend_object *object)
 	f.num_args = 0; \
 	f.fn_flags = 0; \
 	f.handler = ZEND_FN(fn); \
-	return (union _zend_function*)&f;
+	return (zend_function*)&f;
 
 	switch (obj->ce->name->val[0]) {
 #if HAVE_MSCOREE_H
@@ -484,6 +483,7 @@ static int com_object_cast(zval *readobj, zval *writeobj, int type)
 
 	switch(type) {
 		case IS_LONG:
+		case _IS_NUMBER:
 			vt = VT_INT;
 			break;
 		case IS_DOUBLE:
@@ -563,7 +563,7 @@ zend_object_handlers php_com_object_handlers = {
 	com_object_count,
 	NULL,									/* get_debug_info */
 	NULL,									/* get_closure */
-	NULL,									/* get_gc */
+	zend_std_get_gc,						/* get_gc */
 };
 
 void php_com_object_enable_event_sink(php_com_dotnet_object *obj, int enable)

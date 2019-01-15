@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | Zend Signal Handling                                                 |
   +----------------------------------------------------------------------+
-  | Copyright (c) 2008 The PHP Group                                     |
+  | Copyright (c) 2008-2018 The PHP Group                                     |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -17,8 +17,6 @@
   +----------------------------------------------------------------------+
 
  */
-
-/* $Id$ */
 
 #ifndef ZEND_SIGNAL_H
 #define ZEND_SIGNAL_H
@@ -61,6 +59,7 @@ typedef struct _zend_signal_globals_t {
 	int running;            /* in signal handler execution */
 	int active;             /* internal signal handling is enabled */
 	zend_bool check;        /* check for replaced handlers on shutdown */
+	zend_bool reset;        /* reset signal handlers on each request */
 	zend_signal_entry_t handlers[NSIG];
 	zend_signal_queue_t pstorage[ZEND_SIGNAL_QUEUE_SIZE], *phead, *ptail, *pavail; /* pending queue */
 } zend_signal_globals_t;
@@ -89,7 +88,7 @@ ZEND_API void zend_signal_handler_unblock(void);
 void zend_signal_activate(void);
 void zend_signal_deactivate(void);
 BEGIN_EXTERN_C()
-void zend_signal_startup(void);
+ZEND_API void zend_signal_startup(void);
 END_EXTERN_C()
 void zend_signal_init(void);
 

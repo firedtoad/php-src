@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine, SSA - Static Single Assignment Form                     |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2017 The PHP Group                                |
+   | Copyright (c) 1998-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Dmitry Stogov <dmitry@zend.com>                             |
+   | Authors: Dmitry Stogov <dmitry@php.net>                              |
    |          Nikita Popov <nikic@php.net>                                |
    +----------------------------------------------------------------------+
 */
@@ -642,6 +642,22 @@ static int zend_ssa_rename(const zend_op_array *op_array, uint32_t build_flags, 
 						//NEW_SSA_VAR(next->op1.var)
 					}
 					break;
+				case ZEND_ASSIGN_OBJ_REF:
+					if (opline->op1_type == IS_CV) {
+						ssa_ops[k].op1_def = ssa_vars_count;
+						var[EX_VAR_TO_NUM(opline->op1.var)] = ssa_vars_count;
+						ssa_vars_count++;
+						//NEW_SSA_VAR(opline->op1.var)
+					}
+					/* break missing intentionally */
+				case ZEND_ASSIGN_STATIC_PROP_REF:
+					if (next->op1_type == IS_CV) {
+						ssa_ops[k + 1].op1_def = ssa_vars_count;
+						var[EX_VAR_TO_NUM(next->op1.var)] = ssa_vars_count;
+						ssa_vars_count++;
+						//NEW_SSA_VAR(next->op1.var)
+					}
+					break;
 				case ZEND_PRE_INC_OBJ:
 				case ZEND_PRE_DEC_OBJ:
 				case ZEND_POST_INC_OBJ:
@@ -680,6 +696,7 @@ static int zend_ssa_rename(const zend_op_array *op_array, uint32_t build_flags, 
 				case ZEND_SEND_VAR_NO_REF:
 				case ZEND_SEND_VAR_NO_REF_EX:
 				case ZEND_SEND_VAR_EX:
+				case ZEND_SEND_FUNC_ARG:
 				case ZEND_SEND_REF:
 				case ZEND_SEND_UNPACK:
 				case ZEND_FE_RESET_RW:
@@ -746,7 +763,7 @@ static int zend_ssa_rename(const zend_op_array *op_array, uint32_t build_flags, 
 					}
 					break;
 				case ZEND_BIND_LEXICAL:
-					if (opline->extended_value || (build_flags & ZEND_SSA_RC_INFERENCE)) {
+					if ((opline->extended_value & ZEND_BIND_REF) || (build_flags & ZEND_SSA_RC_INFERENCE)) {
 						ssa_ops[k].op2_def = ssa_vars_count;
 						var[EX_VAR_TO_NUM(opline->op2.var)] = ssa_vars_count;
 						ssa_vars_count++;

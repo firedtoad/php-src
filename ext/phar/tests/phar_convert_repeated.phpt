@@ -87,7 +87,7 @@ var_dump($phar->getAlias());
 ?>
 ===DONE===
 --CLEAN--
-<?php 
+<?php
 unlink(dirname(__FILE__) . '/' . basename(__FILE__, '.clean.php') . '.phar.zip');
 unlink(dirname(__FILE__) . '/' . basename(__FILE__, '.clean.php') . '.phar.tar');
 unlink(dirname(__FILE__) . '/' . basename(__FILE__, '.clean.php') . '.phar');
@@ -123,7 +123,7 @@ NULL
 bool(true)
 bool(false)
 bool(false)
-int(6651)
+int(6641)
 NULL
 ================= convertToZip() =====================
 bool(false)

@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 7                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 2006-2017 The PHP Group                                |
+  | Copyright (c) 2006-2018 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -123,7 +123,7 @@ void mysqlnd_local_infile_end(void * ptr)
 
 
 /* {{{ mysqlnd_local_infile_default */
-void
+PHPAPI void
 mysqlnd_local_infile_default(MYSQLND_CONN_DATA * conn)
 {
 	conn->infile.local_infile_init = mysqlnd_local_infile_init;

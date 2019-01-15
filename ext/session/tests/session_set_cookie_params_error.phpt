@@ -7,10 +7,10 @@ Test session_set_cookie_params() function : error functionality
 
 ob_start();
 
-/* 
+/*
  * Prototype : void session_set_cookie_params(int $lifetime [, string $path [, string $domain [, bool $secure [, bool $httponly]]]])
  * Description : Set the session cookie parameters
- * Source code : ext/session/session.c 
+ * Source code : ext/session/session.c
  */
 
 echo "*** Testing session_set_cookie_params() : error functionality ***\n";
@@ -57,7 +57,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // Empty strings
 /*16*/ "",
        '',
@@ -66,7 +66,7 @@ $inputs = array(
 /*18*/ "Nothing",
        'Nothing',
        $heredoc,
-       
+
        // Object data
 /*21*/ new classA(),
 
@@ -268,10 +268,10 @@ bool(true)
 bool(true)
 bool(true)
 
-Warning: session_set_cookie_params() expects parameter 4 to be boolean, object given in %s on line 84
+Warning: session_set_cookie_params() expects parameter 4 to be bool, object given in %s on line 84
 NULL
 
-Warning: session_set_cookie_params() expects parameter 5 to be boolean, object given in %s on line 85
+Warning: session_set_cookie_params() expects parameter 5 to be bool, object given in %s on line 85
 NULL
 bool(true)
 
@@ -300,10 +300,10 @@ NULL
 Warning: session_set_cookie_params() expects parameter 3 to be string, resource given in %s on line 83
 NULL
 
-Warning: session_set_cookie_params() expects parameter 4 to be boolean, resource given in %s on line 84
+Warning: session_set_cookie_params() expects parameter 4 to be bool, resource given in %s on line 84
 NULL
 
-Warning: session_set_cookie_params() expects parameter 5 to be boolean, resource given in %s on line 85
+Warning: session_set_cookie_params() expects parameter 5 to be bool, resource given in %s on line 85
 NULL
 bool(true)
 Done

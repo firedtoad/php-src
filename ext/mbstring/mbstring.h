@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,8 +17,6 @@
    |         Shigeru Kanemoto <sgk@happysize.co.jp>                       |
    +----------------------------------------------------------------------+
  */
-
-/* $Id$ */
 
 #ifndef _MBSTRING_H
 #define _MBSTRING_H
@@ -130,7 +128,7 @@ MBSTRING_API int php_mb_check_encoding_list(const char *encoding_list);
 MBSTRING_API size_t php_mb_mbchar_bytes_ex(const char *s, const mbfl_encoding *enc);
 MBSTRING_API size_t php_mb_mbchar_bytes(const char *s);
 
-MBSTRING_API size_t php_mb_stripos(int mode, const char *old_haystack, size_t old_haystack_len, const char *old_needle, size_t old_needle_len, zend_long offset, const char *from_encoding);
+MBSTRING_API size_t php_mb_stripos(int mode, const char *old_haystack, size_t old_haystack_len, const char *old_needle, size_t old_needle_len, zend_long offset, zend_string *from_encoding);
 MBSTRING_API int php_mb_check_encoding(const char *input, size_t length, const char *enc);
 
 /* internal use only */
@@ -169,7 +167,7 @@ ZEND_BEGIN_MODULE_GLOBALS(mbstring)
 #if HAVE_MBREGEX
     struct _zend_mb_regex_globals *mb_regex_globals;
 #endif
-	char *last_used_encoding_name;
+	zend_string *last_used_encoding_name;
 	const mbfl_encoding *last_used_encoding;
 ZEND_END_MODULE_GLOBALS(mbstring)
 

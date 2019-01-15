@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,8 +18,6 @@
    |          Jim Winstead <jimw@php.net>                                 |
    +----------------------------------------------------------------------+
  */
-
-/* $Id$ */
 
 #define _GNU_SOURCE
 #include "php.h"
@@ -93,7 +91,11 @@ fprintf(stderr, "forget_persistent: %s:%p\n", stream->ops->label, stream);
 
 PHP_RSHUTDOWN_FUNCTION(streams)
 {
-	zend_hash_apply(&EG(persistent_list), forget_persistent_resource_id_numbers);
+	zval *el;
+
+	ZEND_HASH_FOREACH_VAL(&EG(persistent_list), el) {
+		forget_persistent_resource_id_numbers(el);
+	} ZEND_HASH_FOREACH_END();
 	return SUCCESS;
 }
 
@@ -230,7 +232,7 @@ static void wrapper_list_dtor(zval *item) {
 	efree(list);
 }
 
-PHPAPI void php_stream_wrapper_log_error(php_stream_wrapper *wrapper, int options, const char *fmt, ...)
+PHPAPI void php_stream_wrapper_log_error(const php_stream_wrapper *wrapper, int options, const char *fmt, ...)
 {
 	va_list args;
 	char *buffer = NULL;
@@ -267,7 +269,7 @@ PHPAPI void php_stream_wrapper_log_error(php_stream_wrapper *wrapper, int option
 /* }}} */
 
 /* allocate a new stream for a particular ops */
-PHPAPI php_stream *_php_stream_alloc(php_stream_ops *ops, void *abstract, const char *persistent_id, const char *mode STREAMS_DC) /* {{{ */
+PHPAPI php_stream *_php_stream_alloc(const php_stream_ops *ops, void *abstract, const char *persistent_id, const char *mode STREAMS_DC) /* {{{ */
 {
 	php_stream *ret;
 
@@ -624,7 +626,9 @@ PHPAPI void _php_stream_fill_read_buffer(php_stream *stream, size_t size)
 
 			/* reduce buffer memory consumption if possible, to avoid a realloc */
 			if (stream->readbuf && stream->readbuflen - stream->writepos < stream->chunk_size) {
-				memmove(stream->readbuf, stream->readbuf + stream->readpos, stream->readbuflen - stream->readpos);
+				if (stream->writepos > stream->readpos) {
+					memmove(stream->readbuf, stream->readbuf + stream->readpos, stream->writepos - stream->readpos);
+				}
 				stream->writepos -= stream->readpos;
 				stream->readpos = 0;
 			}
@@ -1665,7 +1669,7 @@ static inline int php_stream_wrapper_scheme_validate(const char *protocol, unsig
 }
 
 /* API for registering GLOBAL wrappers */
-PHPAPI int php_register_url_stream_wrapper(const char *protocol, php_stream_wrapper *wrapper)
+PHPAPI int php_register_url_stream_wrapper(const char *protocol, const php_stream_wrapper *wrapper)
 {
 	unsigned int protocol_len = (unsigned int)strlen(protocol);
 	int ret;
@@ -1676,8 +1680,8 @@ PHPAPI int php_register_url_stream_wrapper(const char *protocol, php_stream_wrap
 	}
 
 	str = zend_string_init_interned(protocol, protocol_len, 1);
-	ret = zend_hash_add_ptr(&url_stream_wrappers_hash, str, wrapper) ? SUCCESS : FAILURE;
-	zend_string_release(str);
+	ret = zend_hash_add_ptr(&url_stream_wrappers_hash, str, (void*)wrapper) ? SUCCESS : FAILURE;
+	zend_string_release_ex(str, 1);
 	return ret;
 }
 
@@ -1730,7 +1734,7 @@ PHPAPI php_stream_wrapper *php_stream_locate_url_wrapper(const char *path, const
 	}
 
 	if (options & IGNORE_URL) {
-		return (options & STREAM_LOCATE_WRAPPERS_ONLY) ? NULL : &php_plain_files_wrapper;
+		return (php_stream_wrapper*)((options & STREAM_LOCATE_WRAPPERS_ONLY) ? NULL : &php_plain_files_wrapper);
 	}
 
 	for (p = path; isalnum((int)*p) || *p == '+' || *p == '-' || *p == '.'; p++) {
@@ -1765,7 +1769,7 @@ PHPAPI php_stream_wrapper *php_stream_locate_url_wrapper(const char *path, const
 	/* TODO: curl based streams probably support file:// properly */
 	if (!protocol || !strncasecmp(protocol, "file", n))	{
 		/* fall back on regular file access */
-		php_stream_wrapper *plain_files_wrapper = &php_plain_files_wrapper;
+		php_stream_wrapper *plain_files_wrapper = (php_stream_wrapper*)&php_plain_files_wrapper;
 
 		if (protocol) {
 			int localhost = 0;
@@ -1814,7 +1818,7 @@ PHPAPI php_stream_wrapper *php_stream_locate_url_wrapper(const char *path, const
 			}
 
 			/* Check again, the original check might have not known the protocol name */
-			if ((wrapper = zend_hash_str_find_ptr(wrapper_hash, "file", sizeof("file")-1)) != NULL) {
+			if ((wrapper = zend_hash_find_ex_ptr(wrapper_hash, ZSTR_KNOWN(ZEND_STR_FILE), 1)) != NULL) {
 				return wrapper;
 			}
 
@@ -2011,7 +2015,7 @@ PHPAPI php_stream *_php_stream_open_wrapper_ex(const char *path, const char *mod
 	if (options & STREAM_USE_URL && (!wrapper || !wrapper->is_url)) {
 		php_error_docref(NULL, E_WARNING, "This function may only be used against URLs");
 		if (resolved_path) {
-			zend_string_release(resolved_path);
+			zend_string_release_ex(resolved_path, 0);
 		}
 		return NULL;
 	}
@@ -2064,7 +2068,7 @@ PHPAPI php_stream *_php_stream_open_wrapper_ex(const char *path, const char *mod
 						? PHP_STREAM_PREFER_STDIO : PHP_STREAM_NO_PREFERENCE)) {
 			case PHP_STREAM_UNCHANGED:
 				if (resolved_path) {
-					zend_string_release(resolved_path);
+					zend_string_release_ex(resolved_path, 0);
 				}
 				return stream;
 			case PHP_STREAM_RELEASED:
@@ -2073,7 +2077,7 @@ PHPAPI php_stream *_php_stream_open_wrapper_ex(const char *path, const char *mod
 				}
 				newstream->orig_path = pestrdup(path, persistent);
 				if (resolved_path) {
-					zend_string_release(resolved_path);
+					zend_string_release_ex(resolved_path, 0);
 				}
 				return newstream;
 			default:
@@ -2103,7 +2107,7 @@ PHPAPI php_stream *_php_stream_open_wrapper_ex(const char *path, const char *mod
 	if (stream == NULL && (options & REPORT_ERRORS)) {
 		php_stream_display_wrapper_errors(wrapper, path, "failed to open stream");
 		if (opened_path && *opened_path) {
-			zend_string_release(*opened_path);
+			zend_string_release_ex(*opened_path, 0);
 			*opened_path = NULL;
 		}
 	}
@@ -2114,7 +2118,7 @@ PHPAPI php_stream *_php_stream_open_wrapper_ex(const char *path, const char *mod
 	}
 #endif
 	if (resolved_path) {
-		zend_string_release(resolved_path);
+		zend_string_release_ex(resolved_path, 0);
 	}
 	return stream;
 }
@@ -2205,14 +2209,12 @@ PHPAPI int php_stream_context_set_option(php_stream_context *context,
 	if (NULL == wrapperhash) {
 		array_init(&category);
 		wrapperhash = zend_hash_str_update(Z_ARRVAL(context->options), (char*)wrappername, strlen(wrappername), &category);
-		if (NULL == wrapperhash) {
-			return FAILURE;
-		}
 	}
 	ZVAL_DEREF(optionvalue);
 	Z_TRY_ADDREF_P(optionvalue);
 	SEPARATE_ARRAY(wrapperhash);
-	return zend_hash_str_update(Z_ARRVAL_P(wrapperhash), optionname, strlen(optionname), optionvalue) ? SUCCESS : FAILURE;
+	zend_hash_str_update(Z_ARRVAL_P(wrapperhash), optionname, strlen(optionname), optionvalue);
+	return SUCCESS;
 }
 /* }}} */
 

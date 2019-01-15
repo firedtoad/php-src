@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,8 +16,6 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 #ifndef PHP_HASH_TIGER_H
 #define PHP_HASH_TIGER_H
 
@@ -27,7 +25,7 @@ typedef struct {
 	uint64_t passed;
 	unsigned char buffer[64];
 	unsigned int passes:1;
-	unsigned int length:7;
+	size_t length;
 } PHP_TIGER_CTX;
 
 PHP_HASH_API void PHP_3TIGERInit(PHP_TIGER_CTX *context);

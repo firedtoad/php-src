@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 7                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 2006-2017 The PHP Group                                |
+  | Copyright (c) 2006-2018 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -280,6 +280,16 @@ typedef struct  st_mysqlnd_packet_sha256_pk_request_response {
 	zend_uchar 				*public_key;
 	size_t					public_key_len;
 } MYSQLND_PACKET_SHA256_PK_REQUEST_RESPONSE;
+
+typedef struct st_mysqlnd_packet_cached_sha2_result {
+	MYSQLND_PACKET_HEADER		header;
+	uint8_t		response_code;
+	uint8_t 	result;
+	uint8_t 	request;
+	zend_uchar * password;
+	size_t password_len;
+} MYSQLND_PACKET_CACHED_SHA2_RESULT;
+
 
 
 zend_ulong		php_mysqlnd_net_field_length(const zend_uchar **packet);

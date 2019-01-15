@@ -4,7 +4,7 @@ Test parse_ini_file() function
 <?php
 /* Prototype: array parse_ini_file(string $filename [,bool $process_sections]);
    Description: parse_ini_file() loads in the ini file specified in filename,
-     and returns the settings in it in an associative array. 
+     and returns the settings in it in an associative array.
 */
 
 $file_path = dirname(__FILE__);
@@ -71,7 +71,7 @@ Non_alpha12 = \
 ;Non_alpha17 = ~
 ;Non_alpha18 = !
 ;Non_alpha19 = $
-;Non_alpha20 = () 
+;Non_alpha20 = ()
 
 Non_alpha1_quotes = ";"
 Non_alpha2_quotes = "+"
@@ -217,7 +217,7 @@ echo "*** Done **\n";
 <?php
 unlink(dirname(__FILE__)."/parse.ini");
 ?>
---EXPECTF--
+--EXPECT--
 *** Test parse_ini_file() function:  with various keys and values given in parse.ini file ***
 -- ini file without process_sections optional arg --
 Array

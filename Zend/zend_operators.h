@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2017 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2018 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,13 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
    +----------------------------------------------------------------------+
-   | Authors: Andi Gutmans <andi@zend.com>                                |
-   |          Zeev Suraski <zeev@zend.com>                                |
-   |          Dmitry Stogov <dmitry@zend.com>                             |
+   | Authors: Andi Gutmans <andi@php.net>                                 |
+   |          Zeev Suraski <zeev@php.net>                                 |
+   |          Dmitry Stogov <dmitry@php.net>                              |
    +----------------------------------------------------------------------+
 */
-
-/* $Id$ */
 
 #ifndef ZEND_OPERATORS_H
 #define ZEND_OPERATORS_H
@@ -26,10 +24,7 @@
 #include <errno.h>
 #include <math.h>
 #include <assert.h>
-
-#ifdef __GNUC__
 #include <stddef.h>
-#endif
 
 #ifdef HAVE_IEEEFP_H
 #include <ieeefp.h>
@@ -208,7 +203,7 @@ static zend_always_inline const void *zend_memrchr(const void *s, int c, size_t 
 
 
 static zend_always_inline const char *
-zend_memnrstr(const char *haystack, const char *needle, size_t needle_len, char *end)
+zend_memnrstr(const char *haystack, const char *needle, size_t needle_len, const char *end)
 {
     const char *p = end;
     const char ne = needle[needle_len-1];
@@ -247,8 +242,8 @@ ZEND_API int ZEND_FASTCALL increment_function(zval *op1);
 ZEND_API int ZEND_FASTCALL decrement_function(zval *op2);
 
 ZEND_API void ZEND_FASTCALL convert_scalar_to_number(zval *op);
-ZEND_API void ZEND_FASTCALL _convert_to_cstring(zval *op ZEND_FILE_LINE_DC);
-ZEND_API void ZEND_FASTCALL _convert_to_string(zval *op ZEND_FILE_LINE_DC);
+ZEND_API void ZEND_FASTCALL _convert_to_cstring(zval *op);
+ZEND_API void ZEND_FASTCALL _convert_to_string(zval *op);
 ZEND_API void ZEND_FASTCALL convert_to_long(zval *op);
 ZEND_API void ZEND_FASTCALL convert_to_double(zval *op);
 ZEND_API void ZEND_FASTCALL convert_to_long_base(zval *op, int base);
@@ -284,7 +279,7 @@ static zend_always_inline zend_string *zval_get_tmp_string(zval *op, zend_string
 }
 static zend_always_inline void zend_tmp_string_release(zend_string *tmp) {
 	if (UNEXPECTED(tmp)) {
-		zend_string_release(tmp);
+		zend_string_release_ex(tmp, 0);
 	}
 }
 
@@ -296,8 +291,8 @@ static zend_always_inline void zend_tmp_string_release(zend_string *tmp) {
 #define _zval_get_double_func(op) zval_get_double_func(op)
 #define _zval_get_string_func(op) zval_get_string_func(op)
 
-#define convert_to_cstring(op) if (Z_TYPE_P(op) != IS_STRING) { _convert_to_cstring((op) ZEND_FILE_LINE_CC); }
-#define convert_to_string(op) if (Z_TYPE_P(op) != IS_STRING) { _convert_to_string((op) ZEND_FILE_LINE_CC); }
+#define convert_to_cstring(op) if (Z_TYPE_P(op) != IS_STRING) { _convert_to_cstring((op)); }
+#define convert_to_string(op) if (Z_TYPE_P(op) != IS_STRING) { _convert_to_string((op)); }
 
 
 ZEND_API int ZEND_FASTCALL zend_is_true(zval *op);
@@ -386,6 +381,7 @@ ZEND_API int ZEND_FASTCALL zend_binary_strncasecmp(const char *s1, size_t len1, 
 ZEND_API int ZEND_FASTCALL zend_binary_strcasecmp_l(const char *s1, size_t len1, const char *s2, size_t len2);
 ZEND_API int ZEND_FASTCALL zend_binary_strncasecmp_l(const char *s1, size_t len1, const char *s2, size_t len2, size_t length);
 
+ZEND_API int ZEND_FASTCALL zendi_smart_streq(zend_string *s1, zend_string *s2);
 ZEND_API int ZEND_FASTCALL zendi_smart_strcmp(zend_string *s1, zend_string *s2);
 ZEND_API int ZEND_FASTCALL zend_compare_symbol_tables(HashTable *ht1, HashTable *ht2);
 ZEND_API int ZEND_FASTCALL zend_compare_arrays(zval *a1, zval *a2);
@@ -436,7 +432,13 @@ ZEND_API void ZEND_FASTCALL zend_locale_sprintf_double(zval *op ZEND_FILE_LINE_D
 		convert_to_explicit_type(pzv, str_type);	\
 	}
 
-#define convert_to_boolean_ex(pzv)	convert_to_ex_master(pzv, boolean, _IS_BOOL)
+#define convert_to_boolean_ex(pzv)	do { \
+		if (Z_TYPE_INFO_P(pzv) > IS_TRUE) { \
+			convert_to_boolean(pzv); \
+		} else if (Z_TYPE_INFO_P(pzv) < IS_FALSE) { \
+			ZVAL_FALSE(pzv); \
+		} \
+	} while (0)
 #define convert_to_long_ex(pzv)		convert_to_ex_master(pzv, long, IS_LONG)
 #define convert_to_double_ex(pzv)	convert_to_ex_master(pzv, double, IS_DOUBLE)
 #define convert_to_string_ex(pzv)	convert_to_ex_master(pzv, string, IS_STRING)
@@ -466,9 +468,9 @@ ZEND_API void zend_update_current_locale(void);
 
 static zend_always_inline void fast_long_increment_function(zval *op1)
 {
-#if defined(HAVE_ASM_GOTO) && defined(__i386__)
+#if defined(HAVE_ASM_GOTO) && defined(__i386__) && !(4 == __GNUC__ && 8 == __GNUC_MINOR__)
 	__asm__ goto(
-		"incl (%0)\n\t"
+		"addl $1,(%0)\n\t"
 		"jo  %l1\n"
 		:
 		: "r"(&op1->value)
@@ -479,7 +481,7 @@ overflow: ZEND_ATTRIBUTE_COLD_LABEL
 	ZVAL_DOUBLE(op1, (double)ZEND_LONG_MAX + 1.0);
 #elif defined(HAVE_ASM_GOTO) && defined(__x86_64__)
 	__asm__ goto(
-		"incq (%0)\n\t"
+		"addq $1,(%0)\n\t"
 		"jo  %l1\n"
 		:
 		: "r"(&op1->value)
@@ -516,9 +518,9 @@ overflow: ZEND_ATTRIBUTE_COLD_LABEL
 
 static zend_always_inline void fast_long_decrement_function(zval *op1)
 {
-#if defined(HAVE_ASM_GOTO) && defined(__i386__)
+#if defined(HAVE_ASM_GOTO) && defined(__i386__) && !(4 == __GNUC__ && 8 == __GNUC_MINOR__)
 	__asm__ goto(
-		"decl (%0)\n\t"
+		"subl $1,(%0)\n\t"
 		"jo  %l1\n"
 		:
 		: "r"(&op1->value)
@@ -529,7 +531,7 @@ overflow: ZEND_ATTRIBUTE_COLD_LABEL
 	ZVAL_DOUBLE(op1, (double)ZEND_LONG_MIN - 1.0);
 #elif defined(HAVE_ASM_GOTO) && defined(__x86_64__)
 	__asm__ goto(
-		"decq (%0)\n\t"
+		"subq $1,(%0)\n\t"
 		"jo  %l1\n"
 		:
 		: "r"(&op1->value)
@@ -566,7 +568,7 @@ overflow: ZEND_ATTRIBUTE_COLD_LABEL
 
 static zend_always_inline void fast_long_add_function(zval *result, zval *op1, zval *op2)
 {
-#if defined(HAVE_ASM_GOTO) && defined(__i386__)
+#if defined(HAVE_ASM_GOTO) && defined(__i386__) && !(4 == __GNUC__ && 8 == __GNUC_MINOR__)
 	__asm__ goto(
 		"movl	(%1), %%eax\n\t"
 		"addl   (%2), %%eax\n\t"
@@ -656,7 +658,7 @@ static zend_always_inline int fast_add_function(zval *result, zval *op1, zval *o
 
 static zend_always_inline void fast_long_sub_function(zval *result, zval *op1, zval *op2)
 {
-#if defined(HAVE_ASM_GOTO) && defined(__i386__)
+#if defined(HAVE_ASM_GOTO) && defined(__i386__) && !(4 == __GNUC__ && 8 == __GNUC_MINOR__)
 	__asm__ goto(
 		"movl	(%1), %%eax\n\t"
 		"subl   (%2), %%eax\n\t"
@@ -728,7 +730,7 @@ static zend_always_inline int zend_fast_equal_strings(zend_string *s1, zend_stri
 	} else if (ZSTR_VAL(s1)[0] > '9' || ZSTR_VAL(s2)[0] > '9') {
 		return zend_string_equal_content(s1, s2);
 	} else {
-		return zendi_smart_strcmp(s1, s2) == 0;
+		return zendi_smart_streq(s1, s2);
 	}
 }
 

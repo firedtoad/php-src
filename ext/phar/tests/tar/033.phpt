@@ -36,10 +36,10 @@ try {
 ?>
 ===DONE===
 --CLEAN--
-<?php 
+<?php
 unlink(dirname(__FILE__) . '/' . basename(__FILE__, '.clean.php') . '.phar.tar');
 ?>
---EXPECTF--
+--EXPECT--
 bool(false)
 bool(true)
 bool(false)

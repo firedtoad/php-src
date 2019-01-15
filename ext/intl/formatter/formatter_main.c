@@ -86,7 +86,7 @@ PHP_FUNCTION( numfmt_create )
 }
 /* }}} */
 
-/* {{{ proto void NumberFormatter::__construct( string $locale, int style[, string $pattern ] )
+/* {{{ proto NumberFormatter::__construct( string $locale, int style[, string $pattern ] )
  * NumberFormatter object constructor.
  */
 PHP_METHOD( NumberFormatter, __construct )
@@ -94,7 +94,7 @@ PHP_METHOD( NumberFormatter, __construct )
 	zend_error_handling error_handling;
 
 	zend_replace_error_handling(EH_THROW, IntlException_ce_ptr, &error_handling);
-	return_value = getThis();
+	return_value = ZEND_THIS;
 	if (numfmt_ctor(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1) == FAILURE) {
 		if (!EG(exception)) {
 			zend_throw_exception(IntlException_ce_ptr, "Constructor failed", 0);

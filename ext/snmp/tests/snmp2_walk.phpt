@@ -1,4 +1,4 @@
---TEST--                                 
+--TEST--
 Function snmp2_walk
 --CREDITS--
 Olivier Doucet Olivier Doucet Boris Lytochkin
@@ -60,10 +60,10 @@ var_dump($return);
 --EXPECTF--
 Checking error handling
 
-Warning: snmp2_walk() expects parameter 4 to be integer, %s given in %s on line %d
+Warning: snmp2_walk() expects parameter 4 to be int, %s given in %s on line %d
 bool(false)
 
-Warning: snmp2_walk() expects parameter 5 to be integer, %s given in %s on line %d
+Warning: snmp2_walk() expects parameter 5 to be int, %s given in %s on line %d
 bool(false)
 Checking working
 Single OID

@@ -5,7 +5,7 @@ end
 document set_ts
 	set the ts resource, it is impossible for gdb to
 	call ts_resource_ex while no process is running,
-	but we could get the resource from the argument 
+	but we could get the resource from the argument
 	of frame info.
 end
 
@@ -16,9 +16,11 @@ define ____executor_globals
 		end
 		set $eg = ((zend_executor_globals*) (*((void ***) $tsrm_ls))[executor_globals_id-1])
 		set $cg = ((zend_compiler_globals*) (*((void ***) $tsrm_ls))[compiler_globals_id-1])
+		set $eg_ptr = $eg
 	else
 		set $eg = executor_globals
 		set $cg = compiler_globals
+		set $eg_ptr = (zend_executor_globals*) &executor_globals
 	end
 end
 
@@ -151,7 +153,7 @@ end
 
 define printzv
 	set $ind = 1
-	____printzv $arg0 0 
+	____printzv $arg0 0
 end
 
 document printzv
@@ -171,7 +173,7 @@ define ____printzv_contents
 		printf "UNDEF"
 	end
 	if $type == 1
-        printf "NULL"
+		printf "NULL"
 	end
 	if $type == 2
 		printf "bool: false"
@@ -179,16 +181,16 @@ define ____printzv_contents
 	if $type == 3
 		printf "bool: true"
 	end
-    if $type == 4
+	if $type == 4
 		printf "long: %ld", $zvalue->value.lval
-    end
-    if $type == 5
-        printf "double: %f", $zvalue->value.dval
-    end
-    if $type == 6
-       printf "string: %s", $zvalue->value.str->val
-    end
-	if $type == 7 
+	end
+	if $type == 5
+		printf "double: %f", $zvalue->value.dval
+	end
+	if $type == 6
+		printf "string: %s", $zvalue->value.str->val
+	end
+	if $type == 7
 		printf "array: "
 		if ! $arg1
 			set $ind = $ind + 1
@@ -245,25 +247,31 @@ define ____printzv_contents
 		printf "const: %s", $zvalue->value.str->val
 	end
 	if $type == 12
-		printf "const_ast"
+		printf "CONSTANT_AST"
 	end
 	if $type == 13
-		printf "_IS_BOOL"
+		printf "_BOOL"
 	end
 	if $type == 14
-		printf "IS_CALLABLE"
+		printf "CALLABLE"
 	end
 	if $type == 15
 		printf "indirect: "
 		____printzv $zvalue->value.zv $arg1
 	end
-	if $type == 16
-		printf "string_offset"
-	end
 	if $type == 17
 		printf "pointer: %p", $zvalue->value.ptr
 	end
-	if $type > 17
+	if $type == 18
+		printf "ITERABLE"
+	end
+	if $type == 19
+		printf "VOID"
+	end
+	if $type == 20
+		printf "_ERROR"
+	end
+	if $type == 16 || $type > 20
 		printf "unknown type %d", $type
 	end
 	printf "\n"
@@ -279,40 +287,30 @@ define ____printzv
 	if $arg1
 		____printzv_contents $zcontents $arg1
 	else
-		____printzv_contents $zcontents 0 
+		____printzv_contents $zcontents 0
 	end
 end
 
-define ____print_const_table
-	set $ht = $arg0
-	set $p = $ht->pListHead
+define print_global_vars
+	____executor_globals
+	set $symtable = ((HashTable *)&($eg_ptr->symbol_table))
+	print_ht $symtable
+end
 
-	while $p != 0
-		set $const = (zend_constant *) $p->pData
-
-		set $i = $ind
-		while $i > 0
-			printf "  "
-			set $i = $i - 1
-		end
-
-		if $p->nKeyLength > 0
-			____print_str $p->arKey $p->nKeyLength
-			printf " => "
-		else
-			printf "%d => ", $p->h
-		end
-
-		____printzv_contents &$const->value 0
-		set $p = $p->pListNext
-	end
+document print_global_vars
+	Prints the global variables
 end
 
 define print_const_table
 	set $ind = 1
 	printf "[%p] {\n", $arg0
-	____print_const_table $arg0
+	____print_ht $arg0 4
 	printf "}\n"
+end
+
+document print_const_table
+	Dumps elements of Constants HashTable
+	Example: print_const_table executor_globals.zend_constants
 end
 
 define ____print_ht
@@ -342,7 +340,7 @@ define ____print_ht
 				set $n = $n - 1
 			end
 			printf "[%d] ", $i
-			if $p->key 
+			if $p->key
 				printf "%s => ", $p->key->val
 			else
 				printf "%d => ", $p->h
@@ -360,6 +358,10 @@ define ____print_ht
 			if $arg1 == 3
 				set $func = (zend_function*)$p->val.value.ptr
 				printf "\"%s\"\n", $func->common.function_name->val
+			end
+			if $arg1 == 4
+				set $const = (zend_constant *)$p->val.value.ptr
+				____printzv $const 1
 			end
 		end
 		set $i = $i + 1
@@ -387,7 +389,7 @@ document print_htptr
 end
 
 define print_htstr
-	set $ind = 0 
+	set $ind = 0
 	____print_ht $arg0 2
 end
 
@@ -472,9 +474,12 @@ end
 
 define print_pi
 	set $pi = (zend_property_info *)$arg0
+	set $initial_offset = ((uint32_t)(zend_uintptr_t)(&((zend_object*)0)->properties_table[(0)]))
+	set $ptr_to_val = (zval*)((char*)$pi->ce->default_properties_table + $pi->offset - $initial_offset)
 	printf "[%p] {\n", $pi
+	printf "    offset = %p\n", $pi->offset
 	printf "    ce = [%p] %s\n", $pi->ce, $pi->ce->name->val
-	printf "    flags = %d (", $pi->flags
+	printf "    flags = 0x%x (", $pi->flags
 	if $pi->flags & 0x100
 		printf "ZEND_ACC_PUBLIC"
 	else
@@ -485,7 +490,11 @@ define print_pi
 				printf "ZEND_ACC_PRIVATE"
 			else
 				if $pi->flags & 0x800
-					printf "ZEND_ACC_CHANGED"
+					printf "ZEND_ACC_EARLY_BINDING"
+				else
+					if $pi->flags & 0x20000
+						printf "ZEND_ACC_SHADOW"
+					end
 				end
 			end
 		end
@@ -493,6 +502,8 @@ define print_pi
 	printf ")\n"
 	printf "    name  = "
 	print_zstr $pi->name
+	printf "    default value: "
+	printzv $ptr_to_val
 	printf "}\n"
 end
 
@@ -532,10 +543,10 @@ define printzn
 	if $znode->op_type == 1
 		set $optype = "IS_CONST"
 	end
-	if $znode->op_type == 2 
+	if $znode->op_type == 2
 		set $optype = "IS_TMP_VAR"
 	end
-	if $znode->op_type == 4 
+	if $znode->op_type == 4
 		set $optype = "IS_VAR"
 	end
 	if $znode->op_type == 8
@@ -565,11 +576,11 @@ end
 
 document printzn
 	print type and content of znode.
-	usage: printzn &opline->op1 
+	usage: printzn &opline->op1
 end
 
 define printzops
-	printf "op1 => " 
+	printf "op1 => "
 	printzn &execute_data->opline.op1
 	printf "op2 => "
 	printzn &execute_data->opline.op2

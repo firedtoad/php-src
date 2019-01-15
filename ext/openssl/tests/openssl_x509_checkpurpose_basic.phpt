@@ -3,7 +3,7 @@ int openssl_x509_checkpurpose ( mixed $x509cert , int $purpose [, array $cainfo 
 --CREDITS--
 marcosptf - <marcosptf@yahoo.com.br>
 --SKIPIF--
-<?php if (!extension_loaded("openssl")) print "skip"; 
+<?php if (!extension_loaded("openssl")) print "skip";
 if (OPENSSL_VERSION_NUMBER < 0x10000000) die("skip Output requires OpenSSL 1.0");
 ?>
 --FILE--
@@ -12,7 +12,7 @@ $cert = "file://" . dirname(__FILE__) . "/cert.crt";
 $bert = "file://" . dirname(__FILE__) . "/bug41033.pem";
 $sert = "file://" . dirname(__FILE__) . "/san-cert.pem";
 $cpca = dirname(__FILE__) . "/san-ca.pem";
-$utfl = dirname(__FILE__) . "/sni_server_domain1.pem";
+$utfl = dirname(__FILE__) . "/sni_server_uk.pem";
 $rcrt = openssl_x509_read($cert);
 
 /*  int openssl_x509_checkpurpose ( mixed $x509cert , int $purpose);   */

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Andi Gutmans <andi@zend.com>                                |
-   |          Zeev Suraski <zeev@zend.com>                                |
+   | Authors: Andi Gutmans <andi@php.net>                                 |
+   |          Zeev Suraski <zeev@php.net>                                 |
    +----------------------------------------------------------------------+
 */
-
-/* $Id$ */
 
 #ifndef BASIC_FUNCTIONS_H
 #define BASIC_FUNCTIONS_H
@@ -34,7 +32,7 @@
 
 #include "url_scanner_ex.h"
 
-#if defined(_WIN32) && defined(__clang__)
+#if defined(_WIN32) && !defined(__clang__)
 #include <intrin.h>
 #endif
 
@@ -156,7 +154,7 @@ PHP_RSHUTDOWN_FUNCTION(browscap);
 /* Left for BC (not binary safe!) */
 PHPAPI int _php_error_log(int opt_err, char *message, char *opt, char *headers);
 PHPAPI int _php_error_log_ex(int opt_err, char *message, size_t message_len, char *opt, char *headers);
-PHPAPI int php_prefix_varname(zval *result, zval *prefix, char *var_name, size_t var_name_len, zend_bool add_underscore);
+PHPAPI int php_prefix_varname(zval *result, const zval *prefix, const char *var_name, size_t var_name_len, zend_bool add_underscore);
 
 #define MT_N (624)
 
@@ -250,7 +248,7 @@ typedef struct {
 	char *putenv_string;
 	char *previous_value;
 	char *key;
-	int key_len;
+	size_t key_len;
 } putenv_entry;
 #endif
 

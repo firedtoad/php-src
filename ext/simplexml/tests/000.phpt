@@ -3,7 +3,7 @@ SimpleXML: var_dump()
 --SKIPIF--
 <?php if (!extension_loaded("simplexml")) print "skip"; ?>
 --FILE--
-<?php 
+<?php
 
 $sxe = simplexml_load_file(dirname(__FILE__).'/000.xml');
 
@@ -22,7 +22,7 @@ test('sxe->elem1');
 test('sxe->elem1[0]');
 test('sxe->elem1[0]->elem2');
 test('sxe->elem1[0]->elem2->bla');
-if (!ini_get("unicode_semantics")) test('sxe->elem1[0]["attr1"]');
+test('sxe->elem1[0]["attr1"]');
 test('sxe->elem1[0]->attr1');
 test('sxe->elem1[1]');
 test('sxe->elem1[2]');

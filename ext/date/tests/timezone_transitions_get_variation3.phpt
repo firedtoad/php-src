@@ -7,10 +7,10 @@ Test timezone_transitions_get() function : usage variation - Passing unexpected 
  * Source code: ext/date/php_date.c
  * Alias to functions: DateTimeZone::getTransitions()
  */
- 
+
 echo "*** Testing timezone_transitions_get() : usage variation -  unexpected values to first argument \$timestamp_end ***\n";
 
-//Set the default time zone 
+//Set the default time zone
 date_default_timezone_set("Europe/London");
 
 //get an unset variable
@@ -90,8 +90,8 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
-      // resource 
+
+      // resource
       'resource' => $file_handle
 );
 
@@ -143,7 +143,7 @@ int(1)
 
 -- empty array --
 
-Warning: timezone_transitions_get() expects parameter 3 to be integer, array given in %s on line %d
+Warning: timezone_transitions_get() expects parameter 3 to be int, array given in %s on line %d
 string(7) "boolean"
 
 Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
@@ -151,7 +151,7 @@ int(1)
 
 -- int indexed array --
 
-Warning: timezone_transitions_get() expects parameter 3 to be integer, array given in %s on line %d
+Warning: timezone_transitions_get() expects parameter 3 to be int, array given in %s on line %d
 string(7) "boolean"
 
 Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
@@ -159,7 +159,7 @@ int(1)
 
 -- associative array --
 
-Warning: timezone_transitions_get() expects parameter 3 to be integer, array given in %s on line %d
+Warning: timezone_transitions_get() expects parameter 3 to be int, array given in %s on line %d
 string(7) "boolean"
 
 Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
@@ -167,7 +167,7 @@ int(1)
 
 -- nested arrays --
 
-Warning: timezone_transitions_get() expects parameter 3 to be integer, array given in %s on line %d
+Warning: timezone_transitions_get() expects parameter 3 to be int, array given in %s on line %d
 string(7) "boolean"
 
 Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
@@ -199,7 +199,7 @@ int(1)
 
 -- empty string DQ --
 
-Warning: timezone_transitions_get() expects parameter 3 to be integer, string given in %s on line %d
+Warning: timezone_transitions_get() expects parameter 3 to be int, string given in %s on line %d
 string(7) "boolean"
 
 Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
@@ -207,7 +207,7 @@ int(1)
 
 -- empty string SQ --
 
-Warning: timezone_transitions_get() expects parameter 3 to be integer, string given in %s on line %d
+Warning: timezone_transitions_get() expects parameter 3 to be int, string given in %s on line %d
 string(7) "boolean"
 
 Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
@@ -215,7 +215,7 @@ int(1)
 
 -- string DQ --
 
-Warning: timezone_transitions_get() expects parameter 3 to be integer, string given in %s on line %d
+Warning: timezone_transitions_get() expects parameter 3 to be int, string given in %s on line %d
 string(7) "boolean"
 
 Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
@@ -223,7 +223,7 @@ int(1)
 
 -- string SQ --
 
-Warning: timezone_transitions_get() expects parameter 3 to be integer, string given in %s on line %d
+Warning: timezone_transitions_get() expects parameter 3 to be int, string given in %s on line %d
 string(7) "boolean"
 
 Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
@@ -231,7 +231,7 @@ int(1)
 
 -- mixed case string --
 
-Warning: timezone_transitions_get() expects parameter 3 to be integer, string given in %s on line %d
+Warning: timezone_transitions_get() expects parameter 3 to be int, string given in %s on line %d
 string(7) "boolean"
 
 Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
@@ -239,7 +239,7 @@ int(1)
 
 -- heredoc --
 
-Warning: timezone_transitions_get() expects parameter 3 to be integer, string given in %s on line %d
+Warning: timezone_transitions_get() expects parameter 3 to be int, string given in %s on line %d
 string(7) "boolean"
 
 Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
@@ -247,7 +247,7 @@ int(1)
 
 -- instance of classWithToString --
 
-Warning: timezone_transitions_get() expects parameter 3 to be integer, object given in %s on line %d
+Warning: timezone_transitions_get() expects parameter 3 to be int, object given in %s on line %d
 string(7) "boolean"
 
 Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
@@ -255,7 +255,7 @@ int(1)
 
 -- instance of classWithoutToString --
 
-Warning: timezone_transitions_get() expects parameter 3 to be integer, object given in %s on line %d
+Warning: timezone_transitions_get() expects parameter 3 to be int, object given in %s on line %d
 string(7) "boolean"
 
 Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
@@ -271,7 +271,7 @@ int(1)
 
 -- resource --
 
-Warning: timezone_transitions_get() expects parameter 3 to be integer, resource given in %s on line %d
+Warning: timezone_transitions_get() expects parameter 3 to be int, resource given in %s on line %d
 string(7) "boolean"
 
 Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -76,10 +76,10 @@
 #undef zend_hash_str_add
 #ifdef PHP_WIN32
 #define zend_hash_str_add(...) \
-	_zend_hash_str_add(__VA_ARGS__ ZEND_FILE_LINE_CC)
+	zend_hash_str_add(__VA_ARGS__)
 #else
 #define zend_hash_str_add_tmp(ht, key, len, pData) \
-	_zend_hash_str_add(ht, key, len, pData ZEND_FILE_LINE_CC)
+	zend_hash_str_add(ht, key, len, pData)
 #define zend_hash_str_add(...) zend_hash_str_add_tmp(__VA_ARGS__)
 #endif
 
@@ -104,7 +104,7 @@
 #define PHPDBG_NAME "phpdbg"
 #define PHPDBG_AUTHORS "Felipe Pena, Joe Watkins and Bob Weinand" /* Ordered by last name */
 #define PHPDBG_ISSUES "http://bugs.php.net/report.php"
-#define PHPDBG_VERSION "0.5.0"
+#define PHPDBG_VERSION PHP_VERSION
 #define PHPDBG_INIT_FILENAME ".phpdbginit"
 #define PHPDBG_DEFAULT_PROMPT "prompt>"
 /* }}} */
@@ -308,7 +308,7 @@ ZEND_BEGIN_MODULE_GLOBALS(phpdbg)
 	zend_bool last_was_newline;                  /* check if we don't need to output a newline upon next phpdbg_error or phpdbg_notice */
 
 	FILE *stdin_file;                            /* FILE pointer to stdin source file */
-	php_stream *(*orig_url_wrap_php)(php_stream_wrapper *wrapper, const char *path, const char *mode, int options, zend_string **opened_path, php_stream_context *context STREAMS_DC);
+	const php_stream_wrapper *orig_url_wrap_php;
 
 	char input_buffer[PHPDBG_MAX_CMD];           /* stdin input buffer */
 	int input_buflen;                            /* length of stdin input buffer */

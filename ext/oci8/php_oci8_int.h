@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2017 The PHP Group                                |
+   | Copyright (c) 1997-2018 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,7 +20,7 @@
    | ZTS per process OCIPLogon by Harald Radi <harald.radi@nme.at>        |
    |                                                                      |
    | Redesigned by: Antony Dovgal <antony@zend.com>                       |
-   |                Andi Gutmans <andi@zend.com>                          |
+   |                Andi Gutmans <andi@php.net>                           |
    |                Wez Furlong <wez@omniti.com>                          |
    +----------------------------------------------------------------------+
 */
@@ -98,7 +98,7 @@ extern zend_class_entry *oci_coll_class_entry_ptr;
 #define PHP_OCI_ERRBUF_LEN OCI_ERROR_MAXMSG_SIZE2
 #else
 #define PHP_OCI_ERRBUF_LEN OCI_ERROR_MAXMSG_SIZE
-#endif 
+#endif
 
 /* The mode parameter for oci_connect() is overloaded and accepts both
  * privilege and external authentication flags OR'd together.
@@ -136,7 +136,7 @@ typedef struct {
 /* }}} */
 
 /* {{{ php_oci_connection */
-typedef struct { 
+typedef struct {
 	zend_resource  *id;							/* resource ID */
 	OCIEnv		   *env;						/* private env handle */
 	ub2				charset;					/* charset ID */
@@ -170,7 +170,7 @@ typedef struct {
 /* }}} */
 
 /* {{{ php_oci_descriptor */
-typedef struct { 
+typedef struct {
 	zend_resource		*id;
 	zend_ulong				 index;		            /* descriptors hash table index */
 	php_oci_connection	*connection;			/* parent connection handle */
@@ -187,7 +187,7 @@ typedef struct {
 /* }}} */
 
 /* {{{ php_oci_lob_ctx */
-typedef struct { 
+typedef struct {
 	char			   **lob_data;				/* address of pointer to LOB data */
 	ub4					*lob_len;				/* address of LOB length variable (bytes) */
 	ub4					 alloc_len;
@@ -195,7 +195,7 @@ typedef struct {
 /* }}} */
 
 /* {{{ php_oci_collection */
-typedef struct { 
+typedef struct {
 	zend_resource		*id;
 	php_oci_connection	*connection;			/* parent connection handle */
 	OCIType				*tdo;					/* collection's type handle */
@@ -208,7 +208,7 @@ typedef struct {
 /* }}} */
 
 /* {{{ php_oci_define */
-typedef struct { 
+typedef struct {
 	zval		 val;			/* zval used in define */
 	text		*name;			/* placeholder's name */
 	ub4			 name_len;		/* placeholder's name length */
@@ -217,7 +217,7 @@ typedef struct {
 /* }}} */
 
 /* {{{ php_oci_statement */
-typedef struct { 
+typedef struct {
 	zend_resource		*id;
 	zend_resource	 	*parent_stmtid;			/* parent statement id */
 	struct php_oci_statement *impres_child_stmt;/* child of current Implicit Result Set statement handle */
@@ -242,7 +242,7 @@ typedef struct {
 /* }}} */
 
 /* {{{ php_oci_bind */
-typedef struct { 
+typedef struct {
 	OCIBind				*bind;					/* bind handle */
 	zval				val;					/* value */
 	dvoid				*descriptor;			/* used for binding of LOBS etc */
@@ -265,7 +265,7 @@ typedef struct {
 /* }}} */
 
 /* {{{ php_oci_out_column */
-typedef struct { 
+typedef struct {
 	php_oci_statement	*statement;				/* statement handle. used when fetching REFCURSORS */
 	php_oci_statement	*nested_statement;		/* statement handle. used when fetching REFCURSORS */
 	OCIDefine			*oci_define;			/* define handle */
@@ -344,7 +344,9 @@ typedef struct {
 			case  3114:							  \
 			case  3122:							  \
 			case  3135:							  \
+			case  3136:							  \
 			case 12153:							  \
+			case 12161:							  \
 			case 27146:							  \
 			case 28511:							  \
 				(connection)->is_open = 0;		  \
@@ -543,6 +545,14 @@ int php_oci_unregister_taf_callback(php_oci_connection *connection);
 #define OCI_G(v) TSRMG(oci_globals_id, zend_oci_globals *, v)
 #else
 #define OCI_G(v) (oci_globals.v)
+#endif
+
+/* Allow install from PECL on PHP < 7.3 */
+#ifndef GC_ADDREF
+# define GC_ADDREF(p) (++GC_REFCOUNT(p))
+#endif
+#ifndef GC_DELREF
+# define GC_DELREF(p) (GC_REFCOUNT(p)--)
 #endif
 
 ZEND_EXTERN_MODULE_GLOBALS(oci)

@@ -1,7 +1,5 @@
 --TEST--
-hash_copy() via clone
---SKIPIF--
-<?php extension_loaded('hash') or die('skip'); ?>
+Hash: hash_copy() via clone
 --FILE--
 <?php
 
@@ -30,7 +28,7 @@ foreach ($algos as $algo) {
 
 echo "Done\n";
 ?>
---EXPECTF--
+--EXPECT--
 string(3) "md2"
 string(32) "d5ac4ffd08f6a57b9bd402b8068392ff"
 string(32) "d5ac4ffd08f6a57b9bd402b8068392ff"

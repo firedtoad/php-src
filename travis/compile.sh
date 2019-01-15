@@ -45,13 +45,11 @@ $TS \
 --with-png-dir=/usr \
 --enable-exif \
 --enable-zip \
---without-libzip \
 --with-zlib \
 --with-zlib-dir=/usr \
 --enable-soap \
 --enable-xmlreader \
 --with-xsl \
---with-curl=/usr \
 --with-tidy \
 --with-xmlrpc \
 --enable-sysvsem \
@@ -72,7 +70,7 @@ $TS \
 --with-pspell=/usr \
 --with-enchant=/usr \
 --enable-wddx \
---with-freetype-dir=/usr \
+--with-freetype \
 --with-xpm-dir=/usr \
 --with-kerberos \
 --enable-sysvmsg \
